@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ansa-mcp-plugin"
+version = "0.1.0"
+description = "ANSA MCP bridge with durable tasks, controlled model operations and a native panel"
+readme = "README.md"
+authors = [{ name = "Huangcsu" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = ["mcp>=1.30,<2", "pydantic>=2.11,<3"]
+
+[project.scripts]
+ansa-mcp-plugin = "ansa_mcp_plugin.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ansa_mcp_plugin*", "ansa_mcp_shared*"]

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 本机开发入口图标：模型节点与 source link。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <g fill="none" stroke="currentColor" stroke-width="1.6"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 5.2 8.5 3l5 2.2v5.5l-5 2.2-5-2.2z"/>
+    <path d="m3.5 5.2 5 2.3 5-2.3M8.5 7.5v5.4"/>
+    <circle cx="18" cy="16" r="3.2"/>
+    <path d="M13.5 16H11l-2-3.2M18 12.8v-2.2"/>
+    <path d="m16.7 15.4 1.3.8 1.4-1.8"/>
+  </g>
+</svg>

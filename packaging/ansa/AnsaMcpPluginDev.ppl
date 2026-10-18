@@ -1,0 +1,74 @@
+# -*- coding: utf-8 -*-
+"""ANSA MCP Plugin 的本机开发版 Plugins 描述文件。"""
+
+import os
+
+
+def _plugin_root():
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def _installed_path(*parts):
+    return os.path.join(_plugin_root(), *parts)
+
+
+class plinfos:
+    def __init__(self):
+        self.title = "ANSA MCP Plugin"
+        self.author = "ANSA MCP Plugin development"
+        self.version = "本机开发版"
+        self.hostApplication = "ANSA"
+        self.minHostApplicationVersion = "v26.1.0"
+        self.description = (
+            "本机开发调试入口（source link）。读取入口目录中的 development.json，"
+            "连接本机源码和运行目录；加载插件描述时不会自动启动桥接。<br>"
+            "提供控制面板、开发代码重载和停止桥接按钮。"
+        )
+        self.menuEntry = ""
+        self.category = []
+        self.wikiUrl = ""
+
+        self.filepath = _installed_path("AnsaMcpPluginDev", "AnsaMcpPluginDev.py")
+        icon = _installed_path("AnsaMcpPluginDev", "AnsaMcpPluginDev.svg")
+        self.Buttons = {
+            "ANSA MCP Plugin:::控制面板": (
+                "AnsaMcpPluginDevControlPanel",
+                "打开或复用本机 ANSA MCP Plugin 控制面板",
+                "使用同一 ANSA 进程中已有的桥接会话；没有桥接时读取本机开发配置并启动。",
+                icon,
+            ),
+            "ANSA MCP Plugin:::重新加载开发代码": (
+                "AnsaMcpPluginDevReload",
+                "安全关闭空闲桥接后，从本机 source link 重新加载代码",
+                "有排队或运行中的任务时拒绝重载；旧面板关闭确认后才清理并重新导入开发模块。",
+                icon,
+            ),
+            "ANSA MCP Plugin:::停止桥接": (
+                "AnsaMcpPluginDevStop",
+                "停止本机 ANSA MCP Plugin 桥接",
+                "有排队或运行中的任务时拒绝停止；不会停止或修改旧版 ANSA MCP-Sum。",
+                icon,
+            ),
+        }
+
+
+x = plinfos()
+
+from ansa import session
+
+session.setPluginInfos(x)
+
+# 只保留命名入口模块，不在描述加载阶段初始化桥接或窗口。
+import importlib.util
+import sys
+if "_ansa_mcp_plugin_dev_entry" not in sys.modules:
+    spec = importlib.util.spec_from_file_location("_ansa_mcp_plugin_dev_entry", x.filepath)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["_ansa_mcp_plugin_dev_entry"] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop("_ansa_mcp_plugin_dev_entry", None)
+        raise
+
+# vim: set syntax=python:

@@ -1,0 +1,808 @@
+{
+  "date": "2026-10-18",
+  "legacy_core_count": 79,
+  "current_mcp_tool_count": 65,
+  "mapping_status_counts": {
+    "accepted": 79,
+    "partial": 0,
+    "pending": 0
+  },
+  "external_api_count": 1,
+  "count_basis": "legacy source registration snapshot recorded on 2026-10-12; not the current MCP tool count",
+  "tools": [
+    {
+      "legacy": "ping",
+      "target": "ansa_connection_status",
+      "access": "只读",
+      "status": "已验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1291
+      }
+    },
+    {
+      "legacy": "check_ansa_connection",
+      "target": "ansa_connection_status + ansa_model_snapshot",
+      "access": "只读",
+      "status": "已验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1296
+      }
+    },
+    {
+      "legacy": "get_command_status",
+      "target": "ansa_task_query / ansa_task_list",
+      "access": "任务状态读取/结果同步",
+      "status": "已验收：本机后端按task_id/operation_id及一致双键查询，区分未给键/未找到/查询故障与已有unknown；七状态筛选、持久seq游标/新插入/空末页、后端重启、摘要不暴露正文，真实MCP stdio/TCP/SQLite及模拟执行器5项通过；不重执行模型，不作为新增ANSA建模或画布验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1301
+      }
+    },
+    {
+      "legacy": "recall",
+      "target": "ansa_memory_read；历史见 ansa_task_list",
+      "access": "本机只读",
+      "status": "已验收：私有运行目录的按键读取/不存在键与双游标快照，严格原始JSON类型、稳定偏好/笔记顺序、空尾页和运行目录隔离；5组真实MCP/SQLite检查通过，任务历史另行读取，不连接ANSA或全局Basic Memory",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1319
+      }
+    },
+    {
+      "legacy": "remember",
+      "target": "ansa_memory_write: preference",
+      "access": "本机状态写入",
+      "status": "已验收：显式偏好写入、当前revision前置条件、保留上一值含null、严格JSON/大小/深度限制、跨记忆与模型任务的原子操作键互斥；并发仅一方成功、原回执幂等和重启持久化，本机后端能力，无ANSA建模验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1331
+      }
+    },
+    {
+      "legacy": "remember_note",
+      "target": "ansa_memory_write: note",
+      "access": "本机状态写入",
+      "status": "已验收：显式笔记追加、tag/时间/持久sequence、原操作防重和换请求冲突、重启后原回执一致；原始参数/失败无修改、双游标及隔离已通过真实MCP验证；仅保存明确请求的数据，不自动记忆",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1344
+      }
+    },
+    {
+      "legacy": "execute_script",
+      "target": "ansa_script_execute",
+      "access": "写入/可换模",
+      "status": "已验收：主线程、严格 RESULT、失败副作用与幂等查询",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1355
+      }
+    },
+    {
+      "legacy": "ansa_api_doc_search",
+      "target": "ansa_api_reference: search",
+      "access": "只读",
+      "status": "已验收：原26版运行时文档字符串；本批扩展版本匹配的安装帮助、来源/完整性和分页总数，当前范围见P0扩展记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1368
+      }
+    },
+    {
+      "legacy": "ansa_api_doc_lookup",
+      "target": "ansa_api_reference: lookup",
+      "access": "只读",
+      "status": "已验收：原26版运行时文档字符串；本批扩展官方HTML/stub的签名、参数、返回、示例及明确回退，当前范围见P0扩展记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1379
+      }
+    },
+    {
+      "legacy": "ansa_api_doc_modules",
+      "target": "ansa_api_reference: modules",
+      "access": "元数据只读",
+      "status": "已验收：ANSA2026.1.0支持白名单10命名空间的公开顶层函数计数、单模块筛选、排序、当前版本和旧字段兼容；实际MCP/TCP主线程与独立运行时名称回读一致，不可用项明确不完整；constants原生对象读取已核实，非全部模块/类方法目录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1388
+      }
+    },
+    {
+      "legacy": "ansa_api_doc_categories",
+      "target": "ansa_api_reference: categories",
+      "access": "元数据只读",
+      "status": "已验收：同10命名空间公开顶层函数按透明插件名称规则分类，3872函数/16非空组计数守恒，模块筛选、严格拒绝、幂等和模型无改动5项真机检查通过；分类不是官方taxonomy或读写保证，不含类方法/递归子模块和其他模块",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1393
+      }
+    },
+    {
+      "legacy": "validate_script",
+      "target": "ansa_script_validate",
+      "access": "只读",
+      "status": "已验收：缺失 API 拒绝，预检不执行",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1398
+      }
+    },
+    {
+      "legacy": "get_capabilities",
+      "target": "ansa_connection_status + ansa_model_snapshot",
+      "access": "只读",
+      "status": "已验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1409
+      }
+    },
+    {
+      "legacy": "get_model_info",
+      "target": "ansa_model_snapshot + ansa_model_summary",
+      "access": "只读",
+      "status": "已验收：ANSA2026.1.0/NASTRAN，同代次快照/摘要、原生总数与八类计数，MAT1/PSHELL/PSOLID/GRID/SHELL独立回读；New默认Part/Untitled、副本保存/打开/同路径重开、陈旧上下文/严格输入、幂等及后端重启原查询6组通过；分类不可用为null并报告完整性，总数不可读则失败；不新增画布，ABAQUS节点映射仅本批单元覆盖",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1414
+      }
+    },
+    {
+      "legacy": "geometry_inventory",
+      "target": "ansa_model_inspect: geometry_inventory",
+      "access": "只读",
+      "status": "GRID/MAT1 计数已验收；CAD 类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1419
+      }
+    },
+    {
+      "legacy": "import_file",
+      "target": "ansa_model_open / ansa_model_import",
+      "access": "写入/换模",
+      "status": "已验收：.ansa Open、三种 solver 备份后合并导入；STEP 显式 replace、默认备份/实际恢复、1 FACE/面积回读、幂等、保存重开及 GUI；CAD 合并/其他格式待实现",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1424
+      }
+    },
+    {
+      "legacy": "list_faces",
+      "target": "ansa_entity_list: FACE",
+      "access": "只读",
+      "status": "已验收：单 FACE 的 ID/数量回读；其他字段/分页场景待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1429
+      }
+    },
+    {
+      "legacy": "face_properties",
+      "target": "ansa_model_inspect: face_properties",
+      "access": "只读",
+      "status": "已验收：NASTRAN 三个平面 FACE 的面积/中心及可选原始方向/单位方向/包围盒，完整性、默认兼容、显式子集、幂等、保存重开及GUI；字段异常证据已离线检查，名称/曲面信息/局部法向和其他deck待实现或验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1434
+      }
+    },
+    {
+      "legacy": "select_faces_by_query",
+      "target": "ansa_geometry_select",
+      "access": "只读",
+      "status": "已验收：面积/中心五种排名及归一化法向Z升降序、显式范围与稳定同分排序；法向查询无符号过滤/阈值，曲面局部法向及其他deck待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1444
+      }
+    },
+    {
+      "legacy": "preview_selection",
+      "target": "ansa_geometry_preview",
+      "access": "只读",
+      "status": "已验收：五种基础排名及法向候选、拟删除ID/面积/包围盒、只读删除条件、空模型、幂等及保存重开；不改变模型/可见性/选择，实际删除须另行校验",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1449
+      }
+    },
+    {
+      "legacy": "delete_faces",
+      "target": "ansa_geometry_delete",
+      "access": "写入",
+      "status": "已验收：NASTRAN 两个独立未冻结/未网格FACE的卡片/几何/边界条件、整批拒绝、精确范围、幂等、保存重开/实际备份恢复及GUI；共享边界/多FACE宏/强制删除/其他deck未开放",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1454
+      }
+    },
+    {
+      "legacy": "autosave_model",
+      "target": "ansa_model_autosave / ansa_model_save",
+      "access": "文件写入",
+      "status": "已验收：唯一自动命名、副本回读、幂等重试及保留当前路径",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1459
+      }
+    },
+    {
+      "legacy": "restore_model",
+      "target": "ansa_model_open",
+      "access": "换模",
+      "status": "已验收：.ansa 默认备份及独立回读",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1464
+      }
+    },
+    {
+      "legacy": "save_model_as_ws",
+      "target": "ansa_model_save",
+      "access": "文件写入",
+      "status": "已验收；路径不再限定旧工作区",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1469
+      }
+    },
+    {
+      "legacy": "check_mesh_quality",
+      "target": "ansa_model_inspect: mesh_quality",
+      "access": "只读",
+      "status": "已验收：NASTRAN 选定 FACE 只读质量报告，不自动修复；SHELL/PSHELL及其他质量场景待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1474
+      }
+    },
+    {
+      "legacy": "surface_mesh",
+      "target": "ansa_mesh_faces + ansa_mesh_surface",
+      "access": "只读/写入",
+      "status": "已验收：NASTRAN 单 FACE 完整未网格宏，Tria/1st Order、目标尺寸、参数恢复、SHELL范围回读及幂等；其他类型/多FACE待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1484
+      }
+    },
+    {
+      "legacy": "export_solver_deck",
+      "target": "ansa_model_export",
+      "access": "文件写入",
+      "status": "已验收：NASTRAN/ABAQUS/LSDYNA 单文件导出、独立内容及 SHA-256 回读",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1496
+      }
+    },
+    {
+      "legacy": "batch_benchmark_test",
+      "target": "ansa_benchmark_run",
+      "access": "写入/换模/文件",
+      "status": "已验收（限定范围）：当前 NASTRAN 的 .ansa/.step/.stp 文件集，按大小/路径排序、严格最多10项及1000扫描条目，输入SHA保留；新备份实际重开核对、逐case计数/最大面积/最高中心Z排名、私有JSON/CSV与真实SHA、严格拒绝/原回执和后端恢复六组真机通过。成功结束实际打开备份；Open失败/身份未知停止，不自动恢复，保留备份及实际状态；验收的额外显式model_open恢复另行记录。未规范化新模型的默认Part计数差异仍严格拒绝；不是FPS/网格性能测试，不含其他格式/deck或画布",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1507
+      }
+    },
+    {
+      "legacy": "read_last_log",
+      "target": "ansa_log_read",
+      "access": "后端读取/附件写入",
+      "status": "已验收：当前私有运行目录最新持久result/error及已有stdout、无正文不回退、最近200模型任务审计投影、严格1-65536字符正文预览、完整SHA256私有JSON附件/防覆盖/重启复用；五组真实MCP/SQLite与已有ANSA八对象结果读取通过，46原任务记录语义未变；不执行ANSA或读取任意路径，不冒充全局控制审计或恢复未持久输出",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1512
+      }
+    },
+    {
+      "legacy": "ping_ansa",
+      "target": "ansa_connection_status + ansa_model_snapshot",
+      "access": "只读",
+      "status": "已验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1518
+      }
+    },
+    {
+      "legacy": "open_model",
+      "target": "ansa_model_open",
+      "access": "换模",
+      "status": "已验收：默认备份及更新模型代次",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1523
+      }
+    },
+    {
+      "legacy": "new_model",
+      "target": "ansa_model_new",
+      "access": "换模",
+      "status": "已验收：默认备份、空模型写入与陈旧上下文拒绝",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1528
+      }
+    },
+    {
+      "legacy": "save_model",
+      "target": "ansa_model_save / ansa_model_save_current",
+      "access": "文件写入",
+      "status": "已验收：副本及原路径保存；原路径必须匹配 expected_path 且明确 overwrite=true",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1533
+      }
+    },
+    {
+      "legacy": "save_model_as",
+      "target": "ansa_model_save",
+      "access": "文件写入",
+      "status": "已验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1538
+      }
+    },
+    {
+      "legacy": "export_nastran",
+      "target": "ansa_model_export: NASTRAN",
+      "access": "文件写入",
+      "status": "已验收：单文件产物、GRID 内容及显式覆盖保护",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1544
+      }
+    },
+    {
+      "legacy": "export_lsdyna",
+      "target": "ansa_model_export: LSDYNA",
+      "access": "文件写入",
+      "status": "已验收：单文件产物及 NODE 内容；当前 NASTRAN 测试模型跨格式导出",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1554
+      }
+    },
+    {
+      "legacy": "export_step",
+      "target": "ansa_model_export: STEP",
+      "access": "文件写入",
+      "status": "已验收：显式 visible、真实 ISO-10303-21/CAD 产物及原任务恢复；需在所属 ANSA 确认 Output Parameters",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1563
+      }
+    },
+    {
+      "legacy": "run_python_script_in_ansa",
+      "target": "ansa_script_execute: function_name",
+      "access": "写入/可换模",
+      "status": "已验收：同步无参全局入口、严格名称/原始参数、RESULT优先/None、异步与生成器拒绝、失败副作用/模型信息、SystemExit普通失败及原操作幂等；6组MCP/TCP/所属主线程真机通过，NASTRAN测试GRID卡片独立回读、保存和后端重启原查询无重放；不新增画布或其他deck写入验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1569
+      }
+    },
+    {
+      "legacy": "count_entities",
+      "target": "ansa_entity_count",
+      "access": "只读",
+      "status": "GRID/MAT1 已验收；其他类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1579
+      }
+    },
+    {
+      "legacy": "list_entities",
+      "target": "ansa_entity_list",
+      "access": "只读",
+      "status": "GRID 分页、MAT1 字段已验收；其他类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1588
+      }
+    },
+    {
+      "legacy": "get_entity",
+      "target": "ansa_entity_get",
+      "access": "只读",
+      "status": "MAT1 / ABAQUS NODE 已验收；其他类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1595
+      }
+    },
+    {
+      "legacy": "set_entity_fields",
+      "target": "ansa_entity_update",
+      "access": "写入",
+      "status": "MAT1 / ABAQUS NODE 已验收；需预期字段",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1605
+      }
+    },
+    {
+      "legacy": "create_entity",
+      "target": "ansa_entity_create",
+      "access": "写入",
+      "status": "MAT1 / ABAQUS NODE 已验收；首次非空字段须有可信定义",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1611
+      }
+    },
+    {
+      "legacy": "delete_entities",
+      "target": "ansa_entity_delete",
+      "access": "写入",
+      "status": "MAT1 批量 / ABAQUS NODE 已验收；先校验全部前置条件",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1616
+      }
+    },
+    {
+      "legacy": "search_entities_by_name",
+      "target": "ansa_entity_find",
+      "access": "只读",
+      "status": "已验收：ANSAPART 精确名称检索；其他匹配模式/实体类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1621
+      }
+    },
+    {
+      "legacy": "get_bounding_box",
+      "target": "ansa_entity_bounds",
+      "access": "只读",
+      "status": "NASTRAN GRID 已验收；其他类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1627
+      }
+    },
+    {
+      "legacy": "get_node_coordinates",
+      "target": "ansa_node_coordinates",
+      "access": "只读",
+      "status": "已验收：NASTRAN GRID",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1633
+      }
+    },
+    {
+      "legacy": "change_element_type",
+      "target": "ansa_element_change_type",
+      "access": "写入",
+      "status": "已验收（限定范围）：仅 NASTRAN 显式 1–100 个 CBAR→CROD，使用既有 PROD 和已验证的 .ansa 备份；R1/R2 各六组独立回读通过。R2 后仅新增 128 KiB 请求门禁与失败文本预算，11 项定向 MCP/单测、最终 240 项全量单测及门禁后 55 项 MCP smoke 通过；新增门禁未在 R2 的 ANSA 运行中覆盖。主窗口画布、其他转换或 deck 未验收；类型改变不代表物理等效",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1643
+      }
+    },
+    {
+      "legacy": "create_part",
+      "target": "ansa_part_create",
+      "access": "写入",
+      "status": "已验收：ANSAPART 身份、Name 和 Module Id 独立回读",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1649
+      }
+    },
+    {
+      "legacy": "create_set",
+      "target": "ansa_entity_create: SET",
+      "access": "写入",
+      "status": "已验收：NASTRAN SET 默认创建、Name 配置及成员回读",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1654
+      }
+    },
+    {
+      "legacy": "add_to_set",
+      "target": "ansa_set_add + ansa_set_members",
+      "access": "写入/只读",
+      "status": "已验收：NASTRAN GRID 普通成员加入、前置条件、幂等及回读；直接成员不展开嵌套 SET；最大 200 项",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1659
+      }
+    },
+    {
+      "legacy": "get_model_summary",
+      "target": "ansa_model_summary",
+      "access": "只读",
+      "status": "已验收：NASTRAN 原字段兼容，新增deck名称/节点类型/八类计数及完整性；PSHELL与PSOLID合计、独立类型去重核算、空模型/默认Part、上下文与严格参数、幂等/重启原查询6组通过；总数含原生内部对象，不解释为类别总和或模型已加载标记",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1665
+      }
+    },
+    {
+      "legacy": "list_model_includes",
+      "target": "ansa_model_includes",
+      "access": "只读",
+      "status": "已验收：NASTRAN 父/子/空 Include 的 ID/Name、稳定分页、查询无修改、保存/同路径重开及 GUI；其他 deck 和配置场景待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1670
+      }
+    },
+    {
+      "legacy": "calc_element_mass",
+      "target": "ansa_model_inspect: entity_metrics/mass；mass_properties",
+      "access": "只读",
+      "status": "已验收：原NASTRAN CQUAD4/CTRIA3/CHEXA8显式单实体GPWG三方向质量及保存重开/GUI；新增ABAQUS材料/属性等明确范围展开去重SHELL/SOLID后CalcElementMass标量，解析质量、壳板筛选及大模型副本经真机核对，见P0扩展。非壳/实体、复合材料和OPTISTRUCT未扩展验收；零/非有限或材料不明拒绝，不证明全部模型质量完整",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1675
+      }
+    },
+    {
+      "legacy": "calc_shell_area",
+      "target": "ansa_model_inspect: entity_metrics/area",
+      "access": "只读",
+      "status": "已验收：NASTRAN CQUAD4/CTRIA3 SHELL 面积，与独立节点坐标计算一致，查询无修改、非法输入拒绝、保存重开及GUI；其他类型/deck待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1681
+      }
+    },
+    {
+      "legacy": "calc_solid_volume",
+      "target": "ansa_model_inspect: entity_metrics/volume",
+      "access": "只读",
+      "status": "已验收：NASTRAN CHEXA8 SOLID 体积，与独立节点坐标计算一致，查询无修改、非法输入拒绝、保存重开及GUI；其他SOLID类型/VOLUME/deck待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1686
+      }
+    },
+    {
+      "legacy": "check_intersections",
+      "target": "ansa_mesh_intersections",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3，独立卡片/坐标交线核算、混合/单类型/无问题、同组内部与范围外排除、反向组、隐藏、严格拒绝、幂等、保存重开和主窗口；固定相交模式，原生计数与去重实体分开，不修复；其他类型/deck及全模型自检待验收或实现",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1691
+      }
+    },
+    {
+      "legacy": "check_penetrations",
+      "target": "ansa_mesh_penetrations",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3、正厚度 PSHELL 且两组属性集合不相交，属性倍率/用户厚度两模式、独立卡片/间距核算、隐藏、范围排除、严格拒绝、幂等与保存重开；6项核心及3项原任务/主窗口续验通过，原GUI超时报告保留；相交/穿透类别与去重实体分开，不修复；同属性、其他类型/deck及复杂厚度场景待实现或验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1696
+      }
+    },
+    {
+      "legacy": "check_free_nodes",
+      "target": "ansa_check_run: free_nodes",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN 显式 GRID，SHELL/CONM2 卡片独立连接核算、质量节点选项、单节点邻居补齐/子集/无问题、隐藏单元、严格拒绝、幂等、保存重开及 GUI；保留原生检查历史，不修复；其他 deck、刚性/辅助/载荷等场景待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1701
+      }
+    },
+    {
+      "legacy": "run_quality_check",
+      "target": "ansa_mesh_failed_elements",
+      "access": "模型只读",
+      "status": "已验收（限定范围）：旧工具标准路径固定执行MeshQuality，check_name不选择子检查且不自动修复；复用现有NASTRAN显式1–200个CQUAD4/CTRIA3的MeshQuality工具、当前全局准则全文/指纹、原生报告树和去重失败单元。既有8项核心/主窗口与3项准则恢复补验分别保留，原核心报告末尾恢复断言失败仍为false；本次核对旧源码和四个生产模块未变，不新增ANSA执行。全模型、其他deck/类型和自定义检查名未覆盖",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1706
+      }
+    },
+    {
+      "legacy": "count_failed_elements",
+      "target": "ansa_mesh_failed_elements",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN 显式 CQUAD4/CTRIA3，当前全局准则全文/指纹、关闭准则、良好/失败及单类型子集、隐藏单元、范围外排除、报告叶统计与失败ID去重、严格拒绝、幂等、保存重开及主窗口；稳定准则恢复补验通过、原失败报告保留；0不表示全工程通过，不加载准则、不修复；其他deck、实体及准则模式待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1712
+      }
+    },
+    {
+      "legacy": "check_geometry",
+      "target": "ansa_model_inspect: geometry_check",
+      "access": "模型只读",
+      "status": "已验收（限定范围）：当前 NASTRAN 显式 1–100 个 FACE 的 Basic 检查；逐项回读五个布尔选项、双向核验边界 CONS、完整原生报告树及问题叶/去重 CONS/受影响 FACE。默认/单边界问题、子集/隐藏/范围外排除、严格拒绝、幂等、保存同路径重开及后端重启六组通过；不修复、不改变显示、不代表全模型通过。CONS、Extensive、其他 deck 和复杂几何未验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1722
+      }
+    },
+    {
+      "legacy": "check_sharp_edges",
+      "target": "ansa_mesh_check: sharp_edges",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN 显式 CQUAD4/CTRIA3，共边连接卡片/坐标独立法向核算、80/120角度阈值、混合与三角子集、隐藏单元、范围外排除、报告叶统计、严格拒绝、幂等、保存重开及主窗口补验；固定原生枚举0/0、保留检查历史，不修复；其他deck、凸边/混合边、高阶/非平面/三重边及其他模式待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1731
+      }
+    },
+    {
+      "legacy": "check_rigid_dependencies",
+      "target": "ansa_rigid_dependencies",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN 显式 RBE2，GN/CM/全部GM及GRID连接闭包核验、故障/干净/分离自由度/多从节点与单张子集、隐藏、严格拒绝、幂等和保存重开6项核心通过；修复后5个范围回归、原任务查询/所属主窗口及独立回读续验通过，原报告和文件指纹保留；固定NastranDependency工厂、保留历史、不修复，叶问题数与去重RBE2/GRID分开；其他类型/deck/复杂依赖及修复未完成",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1736
+      }
+    },
+    {
+      "legacy": "calc_mesh_quality",
+      "target": "ansa_model_inspect: mesh_quality",
+      "access": "只读",
+      "status": "已验收：NASTRAN FACE 固定只读检查报告；其他类型及完整统计待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1742
+      }
+    },
+    {
+      "legacy": "mesh_shells",
+      "target": "ansa_mesh_surface",
+      "access": "写入",
+      "status": "已验收（限定范围）：NASTRAN 单个显式未网格 FACE 所属完整宏；Tria/1st Order、absolute 目标长度（已验收值 2）、44 个 CTRIA3、参数恢复和独立回读通过。多 FACE/宏、其他网格参数/类型及已有 SHELL 重划仍未验收；旧空 entity_ids 的全可见模式不纳入当前入口",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1751
+      }
+    },
+    {
+      "legacy": "mesh_volume",
+      "target": "ansa_mesh_volume",
+      "access": "写入",
+      "status": "已验收（限定范围）：NASTRAN 单个已有未网格 VOLUME，六个 CQUAD4/八角轴对齐封闭盒体、既有 PSOLID/已定义 MAT1，先验证新 .ansa 备份，再单次 TETRA RAPID；真实输出六个 PYRAMID 和一个内部 GRID，边界/完整 FE 与节点卡/属性材料定义、拓扑闭合和体积独立核对，六组真机通过，含实际备份恢复、保存重开及后端原回执。API 名称不表示纯四面体，内部节点不要求几何中心；不创建 VOLUME，不含复杂几何、其他 deck 或画布验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1756
+      }
+    },
+    {
+      "legacy": "set_shell_mesh_params",
+      "target": "ansa_mesh_settings；ansa_mesh_surface 临时设置",
+      "access": "只读/设置写入",
+      "status": "已验收：会话内 absolute 尺寸、类型与阶次，完整当前值前置条件、备份回读、幂等、后端重启及 GUI；不写用户默认配置、不自动生成网格",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1761
+      }
+    },
+    {
+      "legacy": "delete_mesh",
+      "target": "ansa_mesh_delete",
+      "access": "写入",
+      "status": "已验收：NASTRAN 指定 SHELL 前置字段、精确删除/幂等、其他 SHELL及节点/几何保留；其他类型待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1766
+      }
+    },
+    {
+      "legacy": "run_batch_mesh",
+      "target": "ansa_script_execute: UTF-8 文件内容 + function_name=main",
+      "access": "写入/脚本",
+      "status": "已验收（限定范围）：旧入口实际读取 UTF-8 Python 文件并执行可选同步零实参 main，不是专门的 batchmesh 求解接口；合并为客户端明确读取文件内容后提交命名脚本。NASTRAN 单 FACE 真实 mesh.Mesh、64 CTRIA3/35 GRID、尺寸2及原参数恢复、原操作回执/冲突/失败 main 无重划、保存同路径重开/陈旧模型及后端重启五组通过；脚本自行导入模块，不保留旧预注入 mesh/connections/json 或 __batch__ 名称，无画布、多模型批量或任意外部脚本验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1771
+      }
+    },
+    {
+      "legacy": "apply_connectors",
+      "target": "ansa_connection_apply",
+      "access": "写入",
+      "status": "已验收（限定范围）：NASTRAN 单个显式未实现 SpotweldPoint_Type、两个明确单 CQUAD4 Part、正厚度/零 NSM PSHELL 和已定义正密度 MAT1、新备份和固定九项 RBAR 设置；单次实现、两投影 GRID、两个四三角形扇形、一个 RBAR 及八个单侧 FE PERIMETER 完整卡片/关联壳范围独立回读；严格拒绝、原回执不重放、实际备份恢复、保存同路径重开和后端重启六组通过。不含已有目标边界、非默认角点厚度、其它连接类型/复杂几何/deck或画布",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1776
+      }
+    },
+    {
+      "legacy": "check_connections",
+      "target": "ansa_connection_check",
+      "access": "模型只读",
+      "status": "已验收（限定范围）：NASTRAN 显式 1–200 个 SpotweldPoint_Type；调用前核验完整卡片及两个不同 Part；仅按绝对距离方式启用 double_connections，并在执行前回读距离选项。属性未保留请求值（含极小值）即拒绝执行。原生 projection 仍可能报告问题；原生报告叶数与去重 failed_point_ids 分开返回。不自动修复，不含显示或画布验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1781
+      }
+    },
+    {
+      "legacy": "list_connectors",
+      "target": "ansa_connection_list",
+      "access": "模型只读",
+      "status": "已验收：NASTRAN CONNECTOR_ENTITY与六类连接点，真实connector及七个点的独立身份/名称/坐标/直径/P字段归属、分类、稳定分页和空尾页、查询无修改、保存同路径重开及原任务恢复；七组正式MCP/TCP/主线程检查通过，不新增画布验收；线/面连接、通用connector的Part/接口点归属扩展及其他deck未开放或待验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1786
+      }
+    },
+    {
+      "legacy": "create_connection_point",
+      "target": "ansa_connection_create",
+      "access": "写入",
+      "status": "已验收：NASTRAN六类连接两个不同ANSAPART的点、正直径/名称/坐标独立回读、默认Bolt/自动ID、混合connector模型、占用ID和整批预检、原操作防重及换请求拒绝、保存重开/重启原回执；创建后失败保留已知实体与范围证据，必要故障离线检查通过；不生成FE实现，不新增画布或其他deck验收",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1791
+      }
+    },
+    {
+      "legacy": "show_only",
+      "target": "ansa_model_inspect: visibility_snapshot + entity_visibility/show_only",
+      "access": "显示写入",
+      "status": "已验收：NASTRAN 明确 FACE/SHELL ID 隔离、完整可见集前置条件与独立回读，模型内容保留；其他类型/deck和复杂联动待验收，GUI状态见显示记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1814
+      }
+    },
+    {
+      "legacy": "show_also",
+      "target": "ansa_model_inspect: visibility_snapshot + entity_visibility/show_also",
+      "access": "显示写入",
+      "status": "已验收：NASTRAN 明确 FACE/SHELL ID 追加显示、保留原可见实体及独立回读；其他类型/deck和复杂联动待验收，GUI状态见显示记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1819
+      }
+    },
+    {
+      "legacy": "hide",
+      "target": "ansa_model_inspect: visibility_snapshot + entity_visibility/hide",
+      "access": "显示写入",
+      "status": "已验收：NASTRAN 明确 FACE/SHELL ID 隐藏、其他同类可见实体保留、整批预检与独立回读；其他类型/deck和复杂联动待验收，GUI状态见显示记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1824
+      }
+    },
+    {
+      "legacy": "near",
+      "target": "ansa_model_inspect: visibility_snapshot + entity_visibility/near",
+      "access": "显示写入",
+      "status": "已验收：NASTRAN 四边形 SHELL 当前可见范围、有限正半径/模型长度单位、dense_search、原生0返回码与实际新增显示回读；非只读空间查询，自定义种子及其他场景未完成，GUI状态见显示记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1829
+      }
+    },
+    {
+      "legacy": "neighb",
+      "target": "ansa_model_inspect: visibility_snapshot + entity_visibility/neighb",
+      "access": "显示写入",
+      "status": "已验收：NASTRAN 四边形 SHELL 当前可见范围的1/2步连接邻居、独立节点拓扑和原操作幂等；接口步数1-20，ALL及其他场景未开放或待验收，GUI状态见显示记录",
+      "source": {
+        "file": "src/ansa_mcp_sum/server.py",
+        "line": 1835
+      }
+    }
+  ],
+  "external_search_ansa_api": {
+    "target": "ansa_api_reference: search",
+    "status": "版本匹配的官方安装帮助及明确标记的运行时回退；范围见reference/abaqus.md与reference/tasks-api.md"
+  }
+}

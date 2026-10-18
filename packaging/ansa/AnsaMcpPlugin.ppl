@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+"""ANSA MCP Plugin native entry description."""
+
+import os
+
+
+def _plugin_root():
+    if not os.path.isabs(__file__):
+        raise RuntimeError("ANSA MCP Plugin PPL path must be absolute")
+    return os.path.dirname(os.path.normpath(__file__))
+
+
+class plinfos:
+    def __init__(self):
+        self.title = "ANSA MCP Plugin"
+        self.author = "Huangcsu"
+        self.version = "0.1.0"
+        self.hostApplication = "ANSA"
+        self.minHostApplicationVersion = "v26.1.0"
+        self.description = (
+            "ANSA MCP Plugin native entry. Configuration is selected by "
+            "ANSA_MCP_PLUGIN_CONFIG; otherwise the user installation JSON is used. <br>"
+            "Provides the control panel and safe bridge stop button."
+        )
+        self.menuEntry = ""
+        self.category = []
+        self.wikiUrl = ""
+        self.filepath = os.path.join(_plugin_root(), "AnsaMcpPlugin_root", "AnsaMcpPlugin.py")
+        self.Buttons = {
+            "ANSA MCP Plugin:::Control Panel": (
+                "AnsaMcpPluginControlPanel",
+                "Open or reuse the ANSA MCP Plugin control panel",
+                "Use the bridge owned by this ANSA process and runtime; start it from installation configuration when absent.",
+                "",
+            ),
+            "ANSA MCP Plugin:::Stop Bridge": (
+                "AnsaMcpPluginStop",
+                "Safely stop the ANSA MCP Plugin bridge",
+                "Reject stopping while tasks are queued or running; report completion after the native panel confirms closure.",
+                "",
+            ),
+        }
+
+
+x = plinfos()
+
+from ansa import session
+
+session.setPluginInfos(x)
+
+# vim: set syntax=python:

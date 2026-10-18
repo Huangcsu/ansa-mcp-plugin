@@ -1,0 +1,40 @@
+.venv/
+.codegraph/
+# 个人智能体配置与开发辅助资料保留在本机。
+/.agents/
+AGENTS.md
+runtime/
+__pycache__/
+*.py[cod]
+build/
+dist/
+# 本机维护计划、阶段档案和旧调研不进入公开源码。
+/PLAN.md
+/internal/
+/research/
+# 已由当前模拟入口替代的历史探针保留在本机。
+/tests/integration/simulated_bridge.py
+*.egg-info/
+.env
+.env.*
+!.env.example
+!.env.template
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+*.dmp
+*.sqlite3
+*.sqlite3-*
+*.ansa
+*.ansa.*
+*.bdf
+*.nas
+*.inp
+*.key
+*.step
+*.stp
+!tests/fixtures/rectangle-20x10-mm.step
+!tests/fixtures/rigid-dependencies.nas
