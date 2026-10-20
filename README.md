@@ -7,7 +7,7 @@
 <p align="center"><strong>让 AI 自动化完成 ANSA 前处理任务，执行可追踪，结果可核对。</strong></p>
 
 <p align="center">
-  <img alt="状态：0.1.0 Preview" src="https://img.shields.io/badge/status-0.1.0_preview-e8b46a?style=flat-square">
+  <img alt="状态：0.1.1 Preview" src="https://img.shields.io/badge/status-0.1.1_preview-e8b46a?style=flat-square">
   <img alt="已验收版本：ANSA 2026.1.0" src="https://img.shields.io/badge/ANSA-2026.1.0-315e66?style=flat-square">
   <img alt="外部环境：Python 3.12" src="https://img.shields.io/badge/Python-3.12-315e66?style=flat-square">
   <a href="LICENSE"><img alt="许可证：MIT" src="https://img.shields.io/badge/license-MIT-315e66?style=flat-square"></a>
@@ -25,7 +25,7 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 
 **当前提供 65 个 MCP 工具，以前处理任务的自动化为核心。** 支持几何查询与筛选、表面与体网格生成、网格质量检查以及实体与属性管理；结合脚本扩展、任务追踪和结果回读，让 AI 能够串联这些操作，减少重复性前处理工作，并保留可核对的执行结果。
 
-> **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.0` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。
+> **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.1` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。版本变更见[更新记录](CHANGELOG.md)。
 
 ## 可以做什么
 
@@ -46,7 +46,7 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 
 ## ANSA 原生控制面板
 
-控制面板直接集成在 ANSA 中，可查看后端连接、任务接收状态和当前 AI 操作目标，在目标窗口主动连接或切换实例，并通过 **Stop / Start** 暂停或恢复任务接收与队列派发。
+控制面板直接集成在 ANSA 中，可查看后端连接、任务接收状态和当前 AI 操作目标，在目标窗口主动连接或切换实例，并通过 **暂停任务 / 恢复任务** 控制任务接收与队列派发。
 
 <p align="center">
   <img src="docs/assets/ansa-control-panel.png" alt="ANSA 原生控制面板真机截图，展示连接与切换目标、任务暂停与恢复，以及概览、命令记录、诊断日志和设置页签" width="900">
@@ -54,7 +54,7 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 
 <p align="center"><sub>ANSA 2026.1.0 中的原生控制面板，展示连接状态、任务控制与当前 AI 操作目标。</sub></p>
 
-**概览、命令记录、诊断日志、设置**四个页签集中展示运行信息，便于核对目标、追踪任务和排查异常。已开始的调用会继续完成，Stop 不会强制中断正在执行的任务。
+**概览、命令记录、诊断日志、设置**四个页签集中展示运行信息。概览按模型、AI 操作目标和任务状态分组；完整路径、进程及会话标识集中保留在诊断页，可通过“查看诊断详情”打开。已开始的调用会继续完成，“暂停任务”不会强制中断正在执行的任务。
 
 ## 从一句工程任务开始
 
@@ -175,10 +175,12 @@ py -3.12 -m venv .venv
 
 1. 在 MCP 客户端加载上一步配置，启动外部服务。
 2. 在目标 ANSA 中打开所需模型，再从 **Custom → Plugins → ANSA MCP Plugin → 控制面板** 打开面板。
-3. 点击 **连接 / 切换到此 ANSA**，确认实例、模型路径和 deck。
+3. 点击 **连接此窗口**，确认概览中的模型、求解器及 AI 操作目标；完整路径和实例标识可在诊断页核对。
 4. 通过 `ansa_connection_status` 和 `ansa_model_snapshot` 核对活动目标，再开始明确范围的建模任务。
 
-独立原生包的菜单名为 **ANSA MCP Plugin → Control Panel**。面板中的 **Stop / Start** 暂停或恢复任务接收与队列派发，已开始的调用继续完成；插件入口中的**停止桥接**（独立包为 **Stop Bridge**）用于关闭空闲桥接。
+后端与桥接认证连接成功后会自动读取模型状态，无需先让 AI 调用查询工具。面板会区分“正在读取”“等待响应”和“已识别”；自动读取不会授权 AI，仍需点击连接。ANSA 忙碌时，读取请求会等待主线程处理，不会因等待超时反复排队；执行错误最多尝试三次。面板中的模型信息是带读取时间的快照，任务执行前仍会重新校验。
+
+独立原生包的菜单名为 **ANSA MCP Plugin → Control Panel**。面板中的 **暂停任务 / 恢复任务** 控制任务接收与队列派发，已开始的调用继续完成；插件入口中的**停止桥接**（独立包为 **Stop Bridge**）用于关闭空闲桥接。
 
 ### 5. 确认安装与连接
 
@@ -192,7 +194,7 @@ py -3.12 -m venv .venv
 
 > 请检查 ANSA MCP Plugin 是否连通：先调用 ansa_connection_status，使用返回的最新目标上下文调用 ansa_model_snapshot；只读取并报告目标进程、模型路径、deck 和连接结果，保留当前模型，不执行建模、删除或覆盖操作。
 
-当前模型尚未保存时，路径可能为空。若没有活动目标，先回到目标 ANSA 面板点击**连接 / 切换到此 ANSA**；面板后端离线时，核对客户端服务启动情况及两端 `runtime_home`。其他问题见[安装排查](docs/installation.md#面板入口未出现)。
+当前模型尚未保存时，路径可能为空。若没有活动目标，先回到目标 ANSA 面板点击**连接此窗口**；面板后端离线时，核对客户端服务启动情况及两端 `runtime_home`。其他问题见[安装排查](docs/installation.md#面板入口未出现)。
 
 ## 文档导航
 

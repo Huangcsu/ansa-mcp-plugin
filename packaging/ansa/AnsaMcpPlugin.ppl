@@ -14,7 +14,7 @@ class plinfos:
     def __init__(self):
         self.title = "ANSA MCP Plugin"
         self.author = "Huangcsu"
-        self.version = "0.1.0"
+        self.version = "0.1.1"
         self.hostApplication = "ANSA"
         self.minHostApplicationVersion = "v26.1.0"
         self.description = (

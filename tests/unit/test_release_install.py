@@ -14,13 +14,13 @@ class ExternalReleaseInstallerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        self.wheel = self.root / "ansa_mcp_plugin-0.1.0-py3-none-any.whl"
+        self.wheel = self.root / "ansa_mcp_plugin-0.1.1-py3-none-any.whl"
         self.lock = self.root / "requirements-runtime.lock"
         self.lock.write_text("mcp==1.0\npydantic==2.0\n", encoding="utf-8")
         with zipfile.ZipFile(self.wheel, "w") as archive:
             archive.writestr(
-                "ansa_mcp_plugin-0.1.0.dist-info/METADATA",
-                "Metadata-Version: 2.1\nName: ansa-mcp-plugin\nVersion: 0.1.0\n\n",
+                "ansa_mcp_plugin-0.1.1.dist-info/METADATA",
+                "Metadata-Version: 2.1\nName: ansa-mcp-plugin\nVersion: 0.1.1\n\n",
             )
         self.install_dir = self.root / "installed-plugin"
         self.runtime_home = self.root / "private-runtime"
@@ -42,7 +42,7 @@ class ExternalReleaseInstallerTests(unittest.TestCase):
     @staticmethod
     def _metadata_json():
         return json.dumps({
-            "ansa-mcp-plugin": "0.1.0",
+            "ansa-mcp-plugin": "0.1.1",
             "mcp": "1.0",
             "pydantic": "2.0",
         })
@@ -80,7 +80,7 @@ class ExternalReleaseInstallerTests(unittest.TestCase):
         self.assertEqual(calls[2][0][1], "-c")
         self.assertIn("Service(runtime_home)", calls[2][0][2])
         self.assertIn("outside the installed distribution", calls[2][0][2])
-        self.assertEqual(manifest["installed_metadata_versions"]["ansa-mcp-plugin"], "0.1.0")
+        self.assertEqual(manifest["installed_metadata_versions"]["ansa-mcp-plugin"], "0.1.1")
         self.assertTrue((self.install_dir / "venv" / "Scripts" / "python.exe").is_file())
 
         launcher = (self.install_dir / "launcher.py").read_text(encoding="utf-8")

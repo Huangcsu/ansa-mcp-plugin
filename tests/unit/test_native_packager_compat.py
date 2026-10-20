@@ -21,7 +21,7 @@ SPEC.loader.exec_module(packager_compat)
 
 class NativePackagerCompatTests(unittest.TestCase):
     def _source_tree(self, root: Path) -> Path:
-        source = root / "native-0.1.0"
+        source = root / "native-0.1.1"
         package = source / "AnsaMcpPlugin_root"
         package.mkdir(parents=True)
         (source / "AnsaMcpPlugin.ppl").write_text(

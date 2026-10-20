@@ -35,6 +35,13 @@ async def check(runtime_home):
                 listed = await session.list_tools()
                 assert {tool.name for tool in listed.tools} == EXPECTED_TOOLS
                 assert all(tool.outputSchema and "ok" in tool.outputSchema["properties"] for tool in listed.tools)
+                # 只做 MCP 初始化和工具发现，尚未查询连接或模型；桥接应自行完成首次探测。
+                for _ in range(100):
+                    if getattr(bridge.state, "startup_probe", {}).get("state") == "ready":
+                        break
+                    await asyncio.sleep(0.05)
+                assert bridge.state.startup_probe["state"] == "ready", bridge.state.startup_probe
+                assert not (bridge.state.authorization or {}).get("active")
                 status = await session.call_tool("ansa_connection_status", {})
                 assert not status.isError
                 content = status.structuredContent
@@ -66,6 +73,7 @@ async def check(runtime_home):
                 assert snapshot.structuredContent["data"]["main_thread"]
                 print(json.dumps({"ok": True, "tools": [tool.name for tool in listed.tools],
                                   "instance_id": bridge.state.instance_id,
+                                  "startup_probe_before_model_query": True,
                                   "second_backend_rejected": True, "unbound_execution_rejected": True}))
     finally:
         bridge.close()

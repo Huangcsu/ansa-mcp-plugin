@@ -173,7 +173,8 @@ class Service(TaskScheduler):
             expected_auth = {"backend_id": self.backend_id, "generation": active["generation"], "active": True}
             if snapshot.get("authorization") == expected_auth:
                 active = {**active, "model": snapshot["model"], "version": snapshot.get("version"),
-                          "deck": snapshot.get("deck"), "authorization": expected_auth, "model_snapshot_cached": True}
+                          "deck": snapshot.get("deck"), "deck_name": snapshot.get("deck_name"),
+                          "authorization": expected_auth, "model_snapshot_cached": True}
         value = {"active_target": active, "active_model": model, "tasks": tasks,
                  "dispatch_blocked": self.dispatch_blocked, "error": self.last_error}
         signature = json.dumps(value, sort_keys=True, allow_nan=False)
@@ -256,6 +257,8 @@ class Service(TaskScheduler):
                 raise RuntimeError("Grant acknowledgement did not match ANSA state")
             self.store.record(self.backend_id, snapshot["instance_id"], snapshot["session_id"], generation, "active",
                               pid=snapshot["pid"], process_start=snapshot["process_start"])
+            self._panel_model = (snapshot["instance_id"], snapshot["model"])
+            self._panel_snapshot = {**snapshot, "authorization": confirmed}
             return snapshot
 
     @staticmethod
@@ -278,7 +281,8 @@ class Service(TaskScheduler):
                     connection = self._connect(registration)
                     snapshot = connection.call("probe")
                     self._check_identity(snapshot, registration)
-                    entry.update(ready=True, deck=snapshot["deck"], model=snapshot["model"])
+                    entry.update(ready=True, deck=snapshot["deck"], deck_name=snapshot.get("deck_name"),
+                                 version=snapshot.get("version"), model=snapshot["model"])
                     if (current and current["state"] == "active" and current["backend_id"] == self.backend_id
                             and all(snapshot[k] == current[k] for k in ("instance_id", "session_id", "pid", "process_start"))
                             and snapshot["authorization"] == {"backend_id": self.backend_id, "generation": current["generation"], "active": True}):

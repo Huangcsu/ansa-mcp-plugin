@@ -2,7 +2,7 @@
 
 适用环境：Windows、64 位 CPython 3.12、拥有有效许可证的 ANSA 2026.1.0 GUI。外部服务和 ANSA 原生桥接分别安装，并使用同一个私有 `runtime_home`。
 
-当前源码版本为 `0.1.0` 预览版。仓库首页提供源码开发安装；独立发行需要配套 wheel 和官方 `.bpkg`，不能只安装其中一端。
+当前源码版本为 `0.1.1` 预览版。仓库首页提供源码开发安装；独立发行需要配套 wheel 和官方 `.bpkg`，不能只安装其中一端。
 
 ## 源码开发安装
 
@@ -26,7 +26,7 @@
 1. 重新启动 ANSA 2026.1.0，并使用安装器修改的 **default profile**。
 2. 在 Ribbon 的 **Custom → Plugins** 中找到 **ANSA MCP Plugin**，点击**控制面板**。
 3. 确认面板显示**概览、命令记录、诊断日志、设置**页签。加载插件描述只注册入口；首次点击控制面板才启动本机桥接。
-4. 配置并启动外部 MCP 服务，保持两端 `runtime_home` 一致。在面板点击**连接 / 切换到此 ANSA**后，查询 `ansa_connection_status` 与 `ansa_model_snapshot` 核对目标。
+4. 配置并启动外部 MCP 服务，保持两端 `runtime_home` 一致。在面板点击**连接此窗口**后，查询 `ansa_connection_status` 与 `ansa_model_snapshot` 核对目标。
 
 该入口依赖当前源码目录，移动源码后需重新运行安装器。通用客户端配置示例见 [README](../README.md#快速开始)。
 
@@ -48,16 +48,16 @@
 .\.venv\Scripts\python.exe -B -X utf8 scripts/build_external_release.py
 ```
 
-输出 `dist/v0.1.0/ansa_mcp_plugin-0.1.0-py3-none-any.whl` 和包含文件清单及 SHA256 的 manifest。构建器审计包边界；wheel 包含外部服务、共享包及发行元数据。
+输出 `dist/v0.1.1/ansa_mcp_plugin-0.1.1-py3-none-any.whl` 和包含文件清单及 SHA256 的 manifest。构建器审计包边界；wheel 包含外部服务、共享包及发行元数据。
 
 用 Python 3.12 执行安装器，安装目录必须尚不存在：
 
 ```powershell
 py -3.12 scripts/install_external_release.py `
-  --wheel dist/v0.1.0/ansa_mcp_plugin-0.1.0-py3-none-any.whl `
+  --wheel dist/v0.1.1/ansa_mcp_plugin-0.1.1-py3-none-any.whl `
   --lock packaging/requirements-runtime.lock `
-  --install-dir "$env:USERPROFILE/ANSA-MCP-Plugin-Installations/v0.1.0" `
-  --runtime-home "$env:USERPROFILE/ANSA-MCP-Plugin-Runtime/v0.1.0"
+  --install-dir "$env:USERPROFILE/ANSA-MCP-Plugin-Installations/v0.1.1" `
+  --runtime-home "$env:USERPROFILE/ANSA-MCP-Plugin-Runtime/v0.1.1"
 ```
 
 安装器创建独立 venv、安装固定版本依赖、执行 `pip check` 并初始化私有目录。下载失败时保留失败回执，不放宽依赖绕过错误。
@@ -76,7 +76,7 @@ py -3.12 scripts/install_external_release.py `
 
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 scripts/stage_native_release.py `
-  --output-dir build/native-0.1.0
+  --output-dir build/native-0.1.1
 ```
 
 输出目录必须不存在。脚本按显式源码清单复制并生成 SHA256 清单，随后由 ANSA 官方 Packager 根据暂存的 `.ppl` 构建 `.bpkg`，再通过官方 Installer 安装。脚本本身不生成 `.bpkg`。
@@ -85,8 +85,8 @@ Windows Packager 如需已验证的 GBK 文本兼容副本，可在新的目录�
 
 ```powershell
 .\.venv\Scripts\python.exe -B -X utf8 scripts/stage_native_packager_compat.py `
-  --source-dir build/native-0.1.0 `
-  --output-dir build/native-0.1.0-packager
+  --source-dir build/native-0.1.1 `
+  --output-dir build/native-0.1.1-packager
 ```
 
 兼容过程保留源文件，记录逐文件哈希和编码转换；不能把普通 ZIP 改名为 `.bpkg`。官方 Packager/Installer 的具体界面及参数以用户安装版本附带的帮助为准。
@@ -94,7 +94,7 @@ Windows Packager 如需已验证的 GBK 文本兼容副本，可在新的目录�
 正式入口从 ANSA 进程环境变量 `ANSA_MCP_PLUGIN_CONFIG` 指定的绝对 JSON 路径读取配置。可指向外部安装生成的 `install-manifest.json`，复用其中的 `runtime_home`。未设置时读取用户目录的 `.ansa-mcp-plugin/installation.json`。环境变量须在启动 ANSA 前设置，例如：
 
 ```powershell
-$env:ANSA_MCP_PLUGIN_CONFIG = Join-Path $env:USERPROFILE 'ANSA-MCP-Plugin-Installations/v0.1.0/install-manifest.json'
+$env:ANSA_MCP_PLUGIN_CONFIG = Join-Path $env:USERPROFILE 'ANSA-MCP-Plugin-Installations/v0.1.1/install-manifest.json'
 ```
 
 通过官方 Installer 安装配套 `.bpkg` 后，在 **Tools → Development → Plugins Manager** 中确认 **ANSA MCP Plugin** 已启用；若更改启用状态，保存 ANSA GUI Settings 并重启。随后从 **Custom → Plugins → ANSA MCP Plugin → Control Panel** 打开面板。首次点击时读取上述配置并启动桥接；MCP 后端启动后，在目标 ANSA 面板点击连接，再通过连接状态和模型快照核对活动目标。

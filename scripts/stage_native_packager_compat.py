@@ -13,8 +13,8 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE_DIR = PROJECT_ROOT / "build" / "native-0.1.0"
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "build" / "native-0.1.0-packager-gbk"
+DEFAULT_SOURCE_DIR = PROJECT_ROOT / "build" / "native-0.1.1"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "build" / "native-0.1.1-packager-gbk"
 MANIFEST_NAME = "PACKAGER_COMPAT_MANIFEST.json"
 CODING_COOKIE = "# -*- coding: gbk -*-"
 REPLACEMENTS = {"\u2022": "*"}

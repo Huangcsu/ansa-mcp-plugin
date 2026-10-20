@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 from itertools import islice
@@ -12,6 +13,8 @@ from ansa_mcp_shared import PROTOCOL_VERSION
 _WINDOW_TITLE = "ANSA MCP Plugin"
 _JOURNAL_LIMIT = 20
 _BACKEND_TASK_LIMIT = 50
+_OVERVIEW_STALE_SECONDS = 30
+_IDENTITY_FIELDS = ("pid", "process_start", "instance_id", "session_id")
 # 桥接执行器 Timer 的默认周期；只在设置页作为说明显示。
 _TIMER_DEFAULT_MS = 100
 # 面板刷新只走窗口自己的 BCTimer：控件的 Python 句柄只在面板窗口的回调上下文里可用。
@@ -59,7 +62,9 @@ def _authorization_text(authorization, secret):
 
 def _write_status(model):
     if model.get("write_enabled_confirmed") is False:
-        return "待后端确认"
+        if model.get("snapshot_cached"):
+            return "执行前校验" if model.get("write_enabled") else "最近检查不支持"
+        return "待模型识别"
     return "开启" if model.get("write_enabled") else "关闭"
 
 
@@ -197,11 +202,262 @@ def _append_error(lines, label, value, secret):
         lines.append(label + _redact(value, secret))
 
 
+def _diagnostic_value(value, secret):
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            name = str(key)
+            if "token" in name.lower() or "secret" in name.lower():
+                result[name] = "[已隐藏]"
+            else:
+                result[name] = _diagnostic_value(item, secret)
+        return result
+    if isinstance(value, (list, tuple)):
+        return [_diagnostic_value(item, secret) for item in value]
+    if isinstance(value, str):
+        return value.replace(secret, "[已隐藏]") if isinstance(secret, str) and secret else value
+    return value
+
+
+def _diagnostic_json(value, secret):
+    return json.dumps(_diagnostic_value(value, secret), ensure_ascii=False, sort_keys=True, default=str)
+
+
+def _full_redact(value, secret):
+    text = "未知" if value is None else str(value)
+    if isinstance(secret, str) and secret:
+        text = text.replace(secret, "[已隐藏]")
+    return text
+
+
+def _model_name(model):
+    if not isinstance(model, dict):
+        return "尚未读取"
+    database = model.get("database")
+    if isinstance(database, str) and not database.strip():
+        return "未命名模型"
+    if not isinstance(database, str):
+        return "尚未读取"
+    filename = database.rstrip("/\\").replace("\\", "/").rsplit("/", 1)[-1]
+    return filename or "未知（文件名不可用）"
+
+
+def _complete_identity(identity):
+    return isinstance(identity, dict) and all(
+        identity.get(key) is not None and identity.get(key) != ""
+        for key in _IDENTITY_FIELDS
+    )
+
+
+def _same_identity(left, right):
+    return _complete_identity(left) and _complete_identity(right) and all(
+        left.get(key) == right.get(key) for key in _IDENTITY_FIELDS
+    )
+
+
+def _target_model_details(status, target):
+    target_model = target.get("model") if isinstance(target, dict) else None
+    if not isinstance(target_model, dict):
+        target_model = status.get("active_model")
+    instance = None
+    instances = status.get("instances")
+    if isinstance(instances, (list, tuple)) and isinstance(target, dict):
+        instance = next(
+            (item for item in instances if _same_identity(item, target)), None
+        )
+    if not isinstance(target_model, dict) and isinstance(instance, dict):
+        target_model = instance.get("model")
+    if not isinstance(target_model, dict):
+        target_model = {}
+    deck_name = None
+    for source in (target, target_model, instance, status):
+        if isinstance(source, dict):
+            deck_name = source.get("deck_name") or source.get("solver_name")
+            if deck_name:
+                break
+    deck = target.get("deck") if isinstance(target, dict) else None
+    if deck is None and isinstance(instance, dict):
+        deck = instance.get("deck")
+    return target_model, deck, deck_name
+
+
+def _overview_data(bridge, snapshot):
+    """Build user-facing overview values from bridge state and an existing snapshot."""
+    state = bridge.state
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
+    model = snapshot.get("model") if isinstance(snapshot.get("model"), dict) else None
+    status = state.backend_status if isinstance(state.backend_status, dict) else {}
+    target = status.get("active_target")
+    target = target if isinstance(target, dict) else None
+    connected_event = getattr(state, "connected", None)
+    connected = bool(connected_event and connected_event.is_set())
+    stopped_event = getattr(state, "stopped", None)
+    stopped = bool(stopped_event and stopped_event.is_set())
+    backend_id = getattr(state, "connected_backend_id", None)
+    current_identity = state.identity()
+
+    observed_at = getattr(state, "cached_probe_at", None)
+    observed_timestamp = None
+    try:
+        observed_timestamp = float(observed_at) if observed_at is not None else None
+        age = max(0.0, time.time() - observed_timestamp) if observed_timestamp is not None else None
+    except (TypeError, ValueError, OverflowError):
+        age = None
+    cached_backend = getattr(state, "cached_probe_backend_id", None)
+    backend_changed = cached_backend != backend_id
+    old_connection = cached_backend is not None and (not connected or backend_changed)
+    startup_probe = getattr(state, "startup_probe", {})
+    startup_probe = startup_probe if isinstance(startup_probe, dict) else {}
+    probe_backend = startup_probe.get("backend_id")
+    try:
+        cached_probe_monotonic = float(getattr(state, "cached_probe_monotonic", None))
+        probe_started_at = float(startup_probe.get("started_at"))
+        cache_matches_round = cached_probe_monotonic >= probe_started_at
+    except (TypeError, ValueError, OverflowError):
+        cache_matches_round = False
+    current_round_matches = bool(
+        connected
+        and backend_id
+        and probe_backend == backend_id
+        and cached_backend == backend_id
+        and cache_matches_round
+    )
+    if age is None:
+        updated_label = "最近读取：时间未知"
+    else:
+        read_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(observed_timestamp))
+        updated_label = "最近读取：" + read_time
+    if old_connection:
+        updated_label += "（来自旧连接，需重新读取）"
+    elif connected and not current_round_matches:
+        updated_label += "（尚未读取当前连接）"
+    if age is not None and age > _OVERVIEW_STALE_SECONDS:
+        updated_label += "（模型缓存较旧，需重新读取）"
+
+    local_authorization = snapshot.get("authorization")
+    target_label = "尚未连接" if not connected or target is None else "目标待确认"
+    verified_target = False
+    if connected and target is not None:
+        target_backend = target.get("backend_id")
+        target_generation = target.get("generation")
+        status_backend = status.get("backend_id")
+        snapshot_identity = {key: snapshot.get(key) for key in _IDENTITY_FIELDS}
+        target_auth = target.get("authorization")
+        target_auth_matches = target_auth is None or (
+            isinstance(target_auth, dict)
+            and target_auth.get("active") is True
+            and target_auth.get("backend_id") == backend_id
+            and target_auth.get("generation") == target_generation
+        )
+        target_model, target_deck, _ = _target_model_details(status, target)
+        target_is_local = _same_identity(target, current_identity)
+        backend_matches = bool(
+            backend_id
+            and target_backend == backend_id
+            and (status_backend is None or status_backend == backend_id)
+        )
+        local_target_matches = True
+        if target_is_local:
+            auth_matches = (
+                isinstance(local_authorization, dict)
+                and local_authorization.get("active") is True
+                and local_authorization.get("backend_id") == backend_id
+                and local_authorization.get("generation") == target_generation
+            )
+            local_epoch = model.get("epoch") if model else None
+            target_epoch = target_model.get("epoch")
+            same_model_generation = (
+                target_epoch is None or local_epoch is None or target_epoch == local_epoch
+            )
+            same_deck = (
+                target_deck is None or snapshot.get("deck") is None
+                or target_deck == snapshot.get("deck")
+            )
+            local_target_matches = auth_matches and same_model_generation and same_deck
+        verified_target = bool(
+            current_round_matches
+            and backend_matches
+            and target.get("state") == "active"
+            and target_generation is not None
+            and target_auth_matches
+            and _same_identity(snapshot_identity, current_identity)
+            and _complete_identity(target)
+            and local_target_matches
+        )
+        if verified_target:
+            target_label = "此窗口" if _same_identity(target, current_identity) else "其他窗口"
+
+    other_target = None
+    if verified_target and target_label == "其他窗口":
+        target_model, _, target_solver = _target_model_details(status, target)
+        pid = target.get("pid")
+        other_model_name = _model_name(target_model)
+        local_model_name = _model_name(model)
+        same_model_name = (
+            not other_model_name.startswith("未知")
+            and other_model_name.casefold() == local_model_name.casefold()
+        )
+        window_label = (
+            "其他窗口（PID {0}）".format(pid)
+            if same_model_name and pid is not None else "其他窗口"
+        )
+        other_target = {
+            "model_name": other_model_name,
+            "solver_name": str(target_solver) if target_solver else "未知",
+            "window_label": window_label,
+        }
+
+    journal = getattr(state, "journal", None)
+    persistence_blocked = bool(getattr(journal, "blocked", False))
+    dispatch_blocked = status.get("dispatch_blocked") is True
+    startup_probe = getattr(state, "startup_probe", {})
+    probe_state = startup_probe.get("state") if isinstance(startup_probe, dict) else None
+    if stopped:
+        task_label = "已暂停"
+        next_step = "点击“恢复任务”重新开始任务接收"
+    elif not connected:
+        task_label = "待连接"
+        next_step = "启动 MCP 后端，并在目标窗口点击“连接此窗口”"
+    elif persistence_blocked or dispatch_blocked:
+        task_label = "任务受阻"
+        next_step = "查看诊断中的持久化或派发错误并排除后再提交任务"
+    elif probe_state in ("pending", "retrying") or model is None:
+        task_label = "等待模型"
+        next_step = "等待模型自动读取完成；失败时查看诊断中的读取错误"
+    elif target_label == "此窗口":
+        task_label = "等待任务"
+        next_step = "可在 AI 客户端提交任务；执行前会重新校验目标与模型"
+    elif target_label == "其他窗口":
+        task_label = "等待任务"
+        next_step = "核对其他窗口及目标模型后，再向 AI 客户端提交任务"
+    elif target_label == "目标待确认":
+        if target is None:
+            task_label = "待连接"
+            next_step = "在目标窗口点击“连接此窗口”"
+        else:
+            task_label = "等待目标确认"
+            next_step = "在目标窗口点击“连接此窗口”，并重新读取模型"
+    else:
+        task_label = "待连接"
+        next_step = "在目标窗口点击“连接此窗口”"
+
+    return {
+        "model_name": _model_name(model),
+        "solver_name": str(snapshot.get("deck_name") or "未知"),
+        "target_label": target_label,
+        "task_label": task_label,
+        "next_step": next_step,
+        "updated_label": updated_label,
+        "other_target": other_target,
+    }
+
+
 def _render(bridge, widgets, snapshot=None):
     state = bridge.state
     state.assert_main()
     if snapshot is None:
         snapshot = state.probe()
+    snapshot = snapshot if isinstance(snapshot, dict) else {}
     status = state.backend_status if isinstance(state.backend_status, dict) else {}
     secret = getattr(bridge, "token", None)
     identity = state.identity()
@@ -209,28 +465,34 @@ def _render(bridge, widgets, snapshot=None):
     target = status.get("active_target")
     if not isinstance(target, dict):
         target = None
-
+    target_model, target_deck, target_deck_name = (
+        _target_model_details(status, target) if target else ({}, None, None)
+    )
+    target_identity = {key: target.get(key) for key in _IDENTITY_FIELDS} if target else None
+    target_authorization = {
+        "authorization": target.get("authorization"),
+        "backend_id": target.get("backend_id"),
+        "generation": target.get("generation"),
+        "state": target.get("state"),
+    } if target else None
+    overview_data = _overview_data(bridge, snapshot)
     overview = [
-        "本实例",
-        "进程：" + _identity_text(identity),
-        "进程启动标识：" + _redact(identity.get("process_start"), secret),
-        "模型：" + _model_text(model, snapshot.get("version"), snapshot.get("deck"), secret),
-        "授权：" + _authorization_text(snapshot.get("authorization"), secret),
-        "",
-        "AI 当前目标",
+        "任务状态：" + overview_data["task_label"],
+        "AI 操作目标：" + overview_data["target_label"],
+        "当前模型：" + overview_data["model_name"],
+        "求解器：" + overview_data["solver_name"],
     ]
-    if target:
-        overview.extend([
-            "进程：" + _identity_text(target),
-            "后端：" + _redact(target.get("backend_id", "未知"), secret),
-            "绑定代次 / 状态：{0} / {1}".format(
-                target.get("generation", "未知"), _redact(target.get("state", "active"), secret)
-            ),
-            "模型：" + _target_model_text(target, identity, snapshot, secret),
-            "授权：" + _target_authorization_text(target, identity, snapshot, secret),
-        ])
-    else:
-        overview.extend(["状态：未绑定", "模型：无已授权目标", "授权：未授权"])
+    if overview_data["other_target"] is not None:
+        other = overview_data["other_target"]
+        overview.append(
+            "目标模型：{0}（{1}，{2}）".format(
+                other["model_name"], other["solver_name"], other["window_label"]
+            )
+        )
+    overview.extend([
+        "下一步：" + overview_data["next_step"],
+        overview_data["updated_label"],
+    ])
 
     journal_error = None
     try:
@@ -267,16 +529,40 @@ def _render(bridge, widgets, snapshot=None):
         diagnostics.append("旧版 MCP-Sum 冲突：无法确认 / " + _redact(exc, secret))
     diagnostics.extend([
         "",
-        "保护范围：" + _redact((model or {}).get("write_scope", "未知"), secret),
-        "模型更替检测：" + _redact((model or {}).get("detection", "未知"), secret),
-        "受控写入：" + _write_status(model or {}),
+        "当前窗口完整身份：" + _diagnostic_json(identity, secret),
+        "当前快照身份：" + _diagnostic_json(
+            {key: snapshot.get(key) for key in _IDENTITY_FIELDS}, secret
+        ),
+        "当前窗口授权：" + _diagnostic_json(snapshot.get("authorization"), secret),
+        "当前模型完整路径：" + _full_redact((model or {}).get("database"), secret),
+        "当前模型 deck：" + _full_redact(snapshot.get("deck"), secret)
+        + "（" + _full_redact(snapshot.get("deck_name"), secret) + "）",
+        "当前模型代次：" + _full_redact((model or {}).get("epoch"), secret),
+        "当前模型更替检测：" + _full_redact((model or {}).get("detection"), secret),
+        "模型保护范围：" + _full_redact((model or {}).get("write_scope"), secret),
+        "最近探测的写入门禁（任务仍会执行前校验）：" + _write_status(model or {}),
+        "当前后端：" + _diagnostic_json(
+            {"connected_backend_id": state.connected_backend_id,
+             "status_backend_id": status.get("backend_id")}, secret
+        ),
+        "后端目标完整身份：" + _diagnostic_json(target_identity, secret),
+        "后端目标授权与绑定：" + _diagnostic_json(target_authorization, secret),
+        "后端目标模型：" + (_diagnostic_json(target_model, secret) if target else "无"),
+        "后端目标 ANSA 版本：" + _full_redact(target.get("version") if target else None, secret),
+        "后端目标 deck：" + _full_redact(target_deck, secret)
+        + "（" + _full_redact(target_deck_name, secret) + ")",
         "令牌：始终隐藏",
-        "最近错误：",
+        "最近错误（历史记录）：",
     ])
     errors = []
     _append_error(errors, "本实例：", getattr(state, "last_error", None), secret)
     _append_error(errors, "后端：", status.get("error"), secret)
+    startup_probe = getattr(state, "startup_probe", {})
+    if isinstance(startup_probe, dict):
+        _append_error(errors, "启动模型读取：", startup_probe.get("error"), secret)
     diagnostics.extend(errors or ["无"])
+    if (model or {}).get("snapshot_age_seconds") is not None:
+        diagnostics.append("模型信息最近读取：{0} 秒前（执行前重新校验）".format(model["snapshot_age_seconds"]))
 
     settings = [
         "实际 ANSA runtime_home：" + _redact(bridge.runtime_home, secret),

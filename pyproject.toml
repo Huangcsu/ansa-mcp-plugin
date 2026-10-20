@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ansa-mcp-plugin"
-version = "0.1.0"
+version = "0.1.1"
 description = "ANSA MCP bridge with durable tasks, controlled model operations and a native panel"
 readme = "README.md"
 authors = [{ name = "Huangcsu" }]

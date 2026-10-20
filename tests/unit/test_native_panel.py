@@ -28,7 +28,9 @@ class NativePanelGui:
         self.stop_count = 0
         self._timer_id = 0
         self.constants = types.SimpleNamespace(BCOnExitHide=1, BCOnExitDestroy=2,
-                                              BCHorizontal=3, BCVertical=4)
+                                              BCHorizontal=3, BCVertical=4,
+                                              BCAlignLeft=5, BCWidgetWidth=6,
+                                              BCWrapAtWordBoundaryOrAnywhere=7)
 
     def module(self):
         guitk = types.SimpleNamespace(
@@ -40,17 +42,26 @@ class NativePanelGui:
             BCWindowSetOnCloseFunction=self.set_close,
             BCWindowSetAcceptFunction=self.set_accept,
             BCWindowSetRejectFunction=self.set_reject,
-            BCLabelCreate=Mock(),
-            BCLabelSetText=Mock(),
+            BCLabelCreate=Mock(side_effect=lambda parent, text: {"parent": parent, "text": text}),
+            BCLabelSetText=Mock(side_effect=lambda label, text: label.update(text=text)),
             BCBoxLayoutCreate=lambda parent, *_: {"window": parent.get("window", parent)},
+            BCGridLayoutCreate=lambda parent: {"parent": parent},
+            BCGridLayoutAddWidget=Mock(),
+            BCGridLayoutSetMargin=Mock(),
+            BCGridLayoutSetSpacing=Mock(),
+            BCGridLayoutSetColStretch=Mock(),
+            BCSpacerCreate=Mock(),
+            BCSetVisible=lambda widget, visible: widget.update(visible=visible),
             BCPushButtonCreate=Mock(),
             BCTabWidgetCreate=self.create_tabs,
             BCFrameCreate=Mock(side_effect=lambda *_: {}),
             BCTextEditCreate=Mock(side_effect=lambda *_: {}),
             BCTextEditSetReadOnly=Mock(),
+            BCTextEditSetWordWrap=Mock(),
+            BCTextEditSetWrapPolicy=Mock(),
             BCTextEditSetText=Mock(),
             BCTabWidgetAddTab=Mock(),
-            BCTabWidgetSetCurrentTab=Mock(),
+            BCTabWidgetSetCurrentTab=lambda tabs, page: tabs.update(current=page),
             BCWindowSetInitSize=Mock(),
             BCWindowSetSize=Mock(),
             BCWindowSetPosition=Mock(),
@@ -225,7 +236,7 @@ class NativePanelLifecycleChecks(unittest.TestCase):
             self.assertIn("已暂停", context["info"]["last_action"])
             native_panel._on_start(None, context)
             self.assertFalse(bridge.state.stopped.is_set())
-            self.assertIn("任务：可受理", context["info"]["control_status"])
+            self.assertIn("任务：等待连接", context["info"]["control_status"])
             self.assertIn("后端仍未连接", context["info"]["last_action"])
 
             bridge.transport.request_bind.side_effect = ConnectionError("MCP 后端未连接")
@@ -246,7 +257,7 @@ class NativePanelLifecycleChecks(unittest.TestCase):
             bridge.state.backend_status = {"active_target": {**bridge.state.identity(), "backend_id": "backend", "generation": 1}}
             native_panel._on_timer(context["timer"], context)
             self.assertIn("连接成功", context["info"]["last_action"])
-            self.assertIn("AI 目标：此 ANSA", context["info"]["control_status"])
+            self.assertIn("连接：已连接到此窗口", context["info"]["control_status"])
             self.assertIsNone(context["bind_pending"])
 
             timer = context["timer"]
@@ -287,6 +298,15 @@ class NativePanelLifecycleChecks(unittest.TestCase):
             self.assertIsNone(context["bind_pending"])
             native_panel._on_timer(timer, context)
             self.assertEqual(bridge.transport.request_bind.call_count, 2)
+            bridge.state.connected.set()
+            bridge.state.startup_probe = {"state": "ready", "backend_id": "backend", "started_at": 100.0}
+            bridge.state.cached_probe = {"model": {"write_enabled": True}}
+            bridge.state.cached_probe_backend_id = "backend"
+            bridge.state.cached_probe_monotonic = 101.0
+            native_panel._on_timer(timer, context)
+            self.assertIn("模型：已识别", context["info"]["control_status"])
+            self.assertIn("连接此窗口", context["info"]["last_action"])
+            self.assertNotIn("后端已断开", context["info"]["last_action"])
             window["on_reject"][0](window, window["on_reject"][1])
 
         self.gui.show_scenarios.append(exercise_inside_bcshow)
@@ -324,7 +344,7 @@ class NativePanelLifecycleChecks(unittest.TestCase):
             "model": {
                 "write_enabled": False,
                 "write_enabled_confirmed": False,
-                "detection": "等待后端模型探测",
+                "detection": "等待自动读取模型状态",
             },
             "authorization": bridge.state.authorization,
         }
@@ -332,7 +352,7 @@ class NativePanelLifecycleChecks(unittest.TestCase):
         self.assertEqual(len(rendered_snapshots), scenario_state["render_count_at_return"])
         self.assert_no_gui_api_after_show_return()
         status_text = panel._model_text(expected["model"])
-        self.assertIn("受控写入 待后端确认", status_text)
+        self.assertIn("受控写入 待模型识别", status_text)
         self.assertNotIn("受控写入 开启", status_text)
         bridge.state.probe.assert_not_called()
         self.assertEqual(bridge.state.panel_info["timer_id"], bridge.timer._timer_id)
@@ -343,6 +363,113 @@ class NativePanelLifecycleChecks(unittest.TestCase):
         )
         with patch.object(native_panel, "_guitk", side_effect=AssertionError("late timer called guitk")):
             self.assertEqual(saved["timer"]["callback"](saved["timer"], saved["timer"]["data"]), 0)
+
+    def test_startup_feedback_and_recovered_connection_error(self):
+        bridge = self.make_bridge()
+
+        def exercise(window):
+            context = window["on_close"][1]
+            bridge.transport.request_bind.side_effect = ConnectionError("MCP 后端未连接")
+            native_panel._on_bind(None, context)
+            old_error = bridge.state.last_error
+            bridge.state.connected.set()
+            bridge.state.connected_backend_id = "backend"
+            bridge.state.startup_probe = {
+                "state": "pending", "backend_id": "backend", "started_at": 100.0,
+            }
+            with patch.object(native_panel.time, "monotonic", return_value=101.0):
+                native_panel._on_timer(context["timer"], context)
+            self.assertIn("模型：正在读取", context["info"]["control_status"])
+            self.assertIn("无需先让 AI", context["info"]["last_action"])
+            self.assertNotIn("连接未完成", context["info"]["last_action"])
+            self.assertEqual(bridge.state.last_error, old_error)
+            with patch.object(native_panel.time, "monotonic", return_value=108.0):
+                native_panel._on_timer(context["timer"], context)
+            self.assertIn("模型：等待响应", context["info"]["control_status"])
+            self.assertIn("等待 ANSA 响应", context["info"]["last_action"])
+            bridge.state.startup_probe = {
+                "state": "failed", "backend_id": "backend", "started_at": 100.0,
+            }
+            native_panel._on_timer(context["timer"], context)
+            self.assertIn("模型：读取失败", context["info"]["control_status"])
+            self.assertIn("诊断日志", context["info"]["last_action"])
+            bridge.state.probe.assert_not_called()
+
+        self.gui.show_scenarios.append(exercise)
+        with patch.object(panel, "_render", return_value={}):
+            native_panel.show_panel(bridge)
+        self.assert_no_gui_api_after_show_return()
+
+    def test_current_snapshot_is_not_authorization_and_old_connection_is_not_ready(self):
+        bridge = self.make_bridge(cached_probe={
+            "model": {"database": "C:/model.ansa", "write_enabled": True}, "deck": 1,
+        })
+        state = bridge.state
+        state.connected.set()
+        state.connected_backend_id = "backend"
+        state.cached_probe_backend_id = "backend"
+        state.cached_probe_at = 200.0
+        state.cached_probe_monotonic = 101.0
+        state.startup_probe = {"state": "ready", "backend_id": "backend", "started_at": 100.0}
+
+        def exercise(window):
+            context = window["on_close"][1]
+            with patch.object(native_panel.time, "time", return_value=203.0):
+                snapshot = native_panel._snapshot_from_cache(state)
+            self.assertEqual(snapshot["model"]["snapshot_age_seconds"], 3)
+            self.assertFalse(snapshot["model"]["write_enabled_confirmed"])
+            self.assertIn("执行前校验", panel._model_text(snapshot["model"]))
+            native_panel._on_timer(context["timer"], context)
+            self.assertIn("模型：已识别", context["info"]["control_status"])
+            self.assertIn("任务：待绑定", context["info"]["control_status"])
+            self.assertFalse(state.authorization["active"])
+            state.startup_probe = {"state": "pending", "backend_id": "backend", "started_at": 110.0}
+            with patch.object(native_panel.time, "monotonic", return_value=111.0):
+                native_panel._on_timer(context["timer"], context)
+            self.assertIn("模型：正在读取", context["info"]["control_status"])
+            self.assertIn("旧连接快照", native_panel._snapshot_from_cache(state)["model"]["detection"])
+            state.probe.assert_not_called()
+
+        self.gui.show_scenarios.append(exercise)
+        with patch.object(panel, "_render", return_value={}):
+            native_panel.show_panel(bridge)
+        self.assert_no_gui_api_after_show_return()
+
+    def test_grouped_overview_updates_other_target_and_opens_diagnostics(self):
+        bridge = self.make_bridge()
+        overview = {
+            "model_name": "<模型>&" + "很长的模型名称" * 12,
+            "solver_name": "ABAQUS", "target_label": "尚未连接",
+            "task_label": "待连接", "next_step": "请连接此窗口",
+            "updated_label": "刚刚读取", "other_target": None,
+        }
+
+        def exercise(window):
+            context = window["on_close"][1]
+            native_panel._on_timer(context["timer"], context)
+            self.assertNotIn("overview", context["widgets"])
+            self.assertEqual(set(context["pages"]), {"overview", "commands", "diagnostics", "settings"})
+            self.assertIn("&lt;模型&gt;&amp;", context["overview_widgets"]["model_name"]["text"])
+            self.assertIn("<br>", context["overview_widgets"]["model_name"]["text"])
+            self.assertFalse(context["other_target_frame"]["visible"])
+            overview["other_target"] = {
+                "model_name": "other.ansa", "solver_name": "NASTRAN", "window_label": "其他窗口",
+            }
+            native_panel._on_timer(context["timer"], context)
+            self.assertTrue(context["other_target_frame"]["visible"])
+            self.assertIn("other.ansa", context["overview_widgets"]["other_model_name"]["text"])
+            native_panel._on_diagnostics(None, context)
+            self.assertIs(context["tabs"]["current"], context["pages"]["diagnostics"])
+            bridge.state.probe.assert_not_called()
+
+        self.gui.show_scenarios.append(exercise)
+        with patch.object(panel, "_render", return_value={}), \
+             patch.object(panel, "_overview_data", return_value=overview, create=True):
+            native_panel.show_panel(bridge)
+        self.assert_no_gui_api_after_show_return()
+        context = self.gui.show_returned_windows[-1]["on_close"][1]
+        self.assertEqual(context["overview_widgets"], {})
+        self.assertEqual(context["pages"], {})
 
     def test_destroy_reopen_rebuilds_window_and_keeps_bridge_executor(self):
         bridge = self.make_bridge()

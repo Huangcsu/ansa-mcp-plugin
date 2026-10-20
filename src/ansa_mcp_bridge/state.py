@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import threading
+import time
 from ansa_mcp_shared.operations import writes_model
 import sys
 import uuid
@@ -32,6 +33,13 @@ class BridgeState:
         self._guard_observed = False
         self._multiple_models_seen = False
         self.cached_probe = None
+        self.cached_probe_at = None
+        self.cached_probe_monotonic = None
+        self.cached_probe_backend_id = None
+        self.startup_probe = {
+            "state": "idle", "backend_id": None, "started_at": None,
+            "attempt": 0, "error": None,
+        }
         self.connected = threading.Event()
         self.connected_backend_id = None
         self.stopped = threading.Event()
@@ -165,7 +173,10 @@ class BridgeState:
             "pid": self.pid, "process_start": self.process_start,
             "instance_id": self.instance_id, "session_id": self.session_id,
             "thread_id": threading.get_ident(), "main_thread": threading.current_thread() is threading.main_thread(),
-            "deck": deck, "model": {"epoch": self.model_epoch, "identity_hint": hint,
+            "deck": deck,
+            "deck_name": next((name for name in ("NASTRAN", "ABAQUS", "LSDYNA", "ANSYS", "PAMCRASH", "RADIOSS")
+                               if getattr(constants, name, None) == deck), "未知求解器"),
+            "model": {"epoch": self.model_epoch, "identity_hint": hint,
                                      "detection": self.model_detection, "database": database,
                                      "write_enabled": guarded,
                                      "write_scope": "ANSA 2026.1.0, one window/model, NASTRAN or ABAQUS with a retained usable model witness"},
@@ -177,6 +188,9 @@ class BridgeState:
             "ui": dict(getattr(self, "panel_info", {})),
         }
         self.cached_probe = snapshot
+        self.cached_probe_at = time.time()
+        self.cached_probe_monotonic = time.monotonic()
+        self.cached_probe_backend_id = self.connected_backend_id if self.connected.is_set() else None
         return snapshot
 
     def invalidate_model(self):
