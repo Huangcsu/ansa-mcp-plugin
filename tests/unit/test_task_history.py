@@ -207,7 +207,7 @@ class TaskHistoryMcpChecks(unittest.IsolatedAsyncioTestCase):
         )
 
         tools = await server.list_tools()
-        self.assertEqual(len(tools), 65)
+        self.assertEqual(len(tools), 69)
         for name in ("ansa_task_list", "ansa_task_query"):
             tool = next(item for item in tools if item.name == name)
             self.assertIs(tool.inputSchema.get("additionalProperties"), False)

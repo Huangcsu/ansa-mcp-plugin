@@ -38,7 +38,7 @@ class LogMcpChecks(unittest.IsolatedAsyncioTestCase):
         service.submit_task.assert_not_called()
         self.assertNotIn("log_read", TASK_TOOLS)
         tools = await server.list_tools()
-        self.assertEqual(len(tools), 65)
+        self.assertEqual(len(tools), 69)
         self.assertFalse(next(t for t in tools if t.name == "ansa_log_read").inputSchema["additionalProperties"])
 
     async def test_empty_history_and_storage_failure_are_distinct(self):

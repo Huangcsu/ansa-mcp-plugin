@@ -5,7 +5,7 @@ import threading
 import sqlite3
 
 from .tasks import TaskStore
-from ansa_mcp_shared.operations import TASK_TOOLS, writes_model
+from ansa_mcp_shared.operations import TASK_TOOLS, writes_model, model_write_allowed
 
 TERMINAL = frozenset({"succeeded", "failed", "cancelled", "expired"})
 TOOLS = TASK_TOOLS
@@ -45,7 +45,7 @@ class TaskScheduler:
                 raise RuntimeError("Executor persistence failed; new task admission is stopped")
             if expected_model != {"epoch": snapshot["model"]["epoch"]}:
                 raise RuntimeError("Model context is missing or stale")
-            if writes_model(tool) and not snapshot["model"]["write_enabled"]:
+            if writes_model(tool) and not model_write_allowed(snapshot["model"], tool):
                 raise RuntimeError("Model replacement guard is unavailable; writes are closed")
             identity = {k: snapshot[k] for k in ("pid", "process_start", "instance_id", "session_id")}
             try:

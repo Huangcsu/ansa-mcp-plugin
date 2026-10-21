@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "build" / f"native-{VERSION}"
 PACKAGE_ROOT = "AnsaMcpPlugin_root"
 PPL_SOURCE = Path("packaging/ansa/AnsaMcpPlugin.ppl")
@@ -54,6 +54,12 @@ SOURCE_FILES = (
     "ansa_mcp_bridge/operations/model_files.py",
     "ansa_mcp_bridge/operations/models.py",
     "ansa_mcp_bridge/operations/penetrations.py",
+    "ansa_mcp_bridge/operations/quality_workflow.py",
+    "ansa_mcp_bridge/operations/native_quality.py",
+    "ansa_mcp_bridge/operations/quality_options.py",
+    "ansa_mcp_bridge/operations/quality_values.py",
+    "ansa_mcp_bridge/operations/quality_reports.py",
+    "ansa_mcp_bridge/operations/quality_snapshot.py",
     "ansa_mcp_bridge/operations/rigid_dependencies.py",
     "ansa_mcp_bridge/operations/scripts.py",
     "ansa_mcp_bridge/operations/structures.py",
@@ -69,6 +75,8 @@ SOURCE_FILES = (
     "ansa_mcp_shared/__init__.py",
     "ansa_mcp_shared/framing.py",
     "ansa_mcp_shared/identity.py",
+    "ansa_mcp_shared/mesh_quality.py",
+    "ansa_mcp_shared/quality_templates.py",
     "ansa_mcp_shared/operations.py",
     "ansa_mcp_shared/protocol.py",
     "ansa_mcp_shared/security.py",

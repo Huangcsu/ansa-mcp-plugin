@@ -63,8 +63,12 @@ def _authorization_text(authorization, secret):
 def _write_status(model):
     if model.get("write_enabled_confirmed") is False:
         if model.get("snapshot_cached"):
+            if model.get("write_tools"):
+                return "质量操作执行前校验"
             return "执行前校验" if model.get("write_enabled") else "最近检查不支持"
         return "待模型识别"
+    if not model.get("write_enabled") and model.get("write_tools"):
+        return "仅网格质量定位／修复"
     return "开启" if model.get("write_enabled") else "关闭"
 
 

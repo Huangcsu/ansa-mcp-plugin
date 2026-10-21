@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MAPPING_DATE = "2026-10-18"
-CURRENT_MCP_TOOL_COUNT = 65
+MAPPING_DATE = "2026-10-19"
+CURRENT_MCP_TOOL_COUNT = 69
 
 MAPPING = {
     "ping": ("ansa_connection_status", "只读", "已验收"),

@@ -37,7 +37,7 @@ async def verify(installation, report_path):
                 " ('ansa','ansa_mcp_bridge','bcsrpc','grpc')}}))"])],
                 check=True, cwd=unrelated, env=env, capture_output=True, text=True, encoding="utf-8")
             evidence = json.loads(metadata.stdout)
-            if evidence["version"] != "0.1.1" or not all(evidence["excluded_modules"].values()):
+            if evidence["version"] != "0.1.2" or not all(evidence["excluded_modules"].values()):
                 raise AssertionError("发布包版本或 SDK/桥接隔离不符")
             for key in ("plugin_file", "shared_file"):
                 Path(evidence[key]).resolve().relative_to(installation)
@@ -54,7 +54,7 @@ async def verify(installation, report_path):
                             raise AssertionError("安装环境工具表不符")
                         if not all(tool.inputSchema and tool.outputSchema for tool in listed.tools):
                             raise AssertionError("安装环境 schema 不完整")
-                        report["cases"].append({"name": "installed_stdio_and_65_schemas", "ok": True, "count": len(listed.tools)})
+                        report["cases"].append({"name": "installed_stdio_and_69_schemas", "ok": True, "count": len(listed.tools)})
                         result = await client.call_tool("ansa_connection_status", {})
                         value = result.structuredContent
                         if result.isError or value["ok"] is not True:

@@ -13,6 +13,8 @@ READ_ONLY_TOOLS = frozenset({
     "mesh_failed_elements",
     "mesh_intersections",
     "mesh_penetrations",
+    "quality_report",
+    "quality_page",
     "rigid_dependencies",
     "connection_list",
     "connection_check",
@@ -32,6 +34,7 @@ TASK_TOOLS = READ_ONLY_TOOLS | MODEL_CHANGE_TOOLS | frozenset({
     "mesh_volume",
     "mesh_hex_map",
     "mesh_workflow",
+    "quality_locate", "quality_repair",
     "kinematics_body_create", "kinematics_joint_create", "kinematics_config_create",
 })
 
@@ -40,3 +43,17 @@ def writes_model(tool):
     if tool not in TASK_TOOLS:
         raise ValueError("Unsupported operation")
     return tool not in READ_ONLY_TOOLS
+
+
+# A verified model lifetime may permit only a small subset of write operations.
+LIMITED_WRITE_TOOLS = frozenset({"quality_locate", "quality_repair"})
+
+
+def model_write_allowed(model, tool):
+    """Apply the same fail-closed per-operation gate at admission and claim."""
+    if tool not in TASK_TOOLS:
+        raise ValueError("Unsupported operation")
+    if model.get("write_enabled") is True:
+        return True
+    allowed = model.get("write_tools", [])
+    return (type(allowed) is list and tool in LIMITED_WRITE_TOOLS and tool in allowed)

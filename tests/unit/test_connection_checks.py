@@ -366,7 +366,7 @@ class ConnectionChecksMcpSchemaTests(unittest.IsolatedAsyncioTestCase):
         server = create_server(SimpleNamespace())
         tools = await server.list_tools()
         names = {tool.name for tool in tools}
-        self.assertEqual(len(tools), 65)
+        self.assertEqual(len(tools), 69)
         self.assertIn("ansa_connection_check", names)
         self.assertIn("connection_check", READ_ONLY_TOOLS)
         self.assertFalse(writes_model("connection_check"))

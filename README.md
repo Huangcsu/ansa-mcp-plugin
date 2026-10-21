@@ -7,7 +7,7 @@
 <p align="center"><strong>让 AI 自动化完成 ANSA 前处理任务，执行可追踪，结果可核对。</strong></p>
 
 <p align="center">
-  <img alt="状态：0.1.1 Preview" src="https://img.shields.io/badge/status-0.1.1_preview-e8b46a?style=flat-square">
+  <img alt="状态：0.1.2 Preview" src="https://img.shields.io/badge/status-0.1.2_preview-e8b46a?style=flat-square">
   <img alt="已验收版本：ANSA 2026.1.0" src="https://img.shields.io/badge/ANSA-2026.1.0-315e66?style=flat-square">
   <img alt="外部环境：Python 3.12" src="https://img.shields.io/badge/Python-3.12-315e66?style=flat-square">
   <a href="LICENSE"><img alt="许可证：MIT" src="https://img.shields.io/badge/license-MIT-315e66?style=flat-square"></a>
@@ -23,9 +23,9 @@
 
 ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelcontextprotocol.io/) 集成。支持 MCP stdio 的 AI 客户端可以查询模型、执行受控建模与网格操作，并通过 ANSA 原生控制面板选择目标窗口、查看状态和暂停任务。
 
-**当前提供 65 个 MCP 工具，以前处理任务的自动化为核心。** 支持几何查询与筛选、表面与体网格生成、网格质量检查以及实体与属性管理；结合脚本扩展、任务追踪和结果回读，让 AI 能够串联这些操作，减少重复性前处理工作，并保留可核对的执行结果。
+**当前版本提供 69 个 MCP 工具，以前处理任务的自动化为核心。** 支持几何查询与筛选、表面与体网格生成、网格质量检查以及实体与属性管理；结合脚本扩展、任务追踪和结果回读，让 AI 能够串联这些操作，减少重复性前处理工作，并保留可核对的执行结果。
 
-> **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.1` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。版本变更见[更新记录](CHANGELOG.md)。
+> **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.2` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。版本变更见[更新记录](CHANGELOG.md)。
 
 ## 可以做什么
 
@@ -41,6 +41,12 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 | **任务追踪与结果核对** | 跟踪任务状态、历史和日志，按任务或操作 ID 查询原结果；回读实体、属性与网格数据，核对自动化任务的执行情况 |
 
 此外，还支持[连接定义与检查](docs/reference/operations.md#连接对象与连接实现)、[刚体与运动副配置、接触关系回读](docs/reference/abaqus.md)等专项场景。
+
+新增[四类原生网格质量模板](docs/reference/mesh-quality.md)：线性壳、线性实体、显式碰撞壳、显式碰撞实体。ANSA 原生准则负责主检查与修复复查，MCP 保留问题定位、备份和位移／范围保护；阈值来自项目准则，deck 用于实体和算法适配。
+
+Quality Inspector 对应工作流支持原生质量数值明细、Fix Quality 参数恢复、自动候选节点和累计位移受限的多轮修复。检查总单元数不设固定2000上限，支持整体范围分批检查及分页详情；修复范围和资源预算仍明确受控。当前提供源码预览版，尚未发布配套安装包。
+
+当前版本已开放 LS-DYNA 原生显式模板的质量检查、按准则定位及 QUAD4／HEXA8 受控修复；其他 LS-DYNA 写操作继续关闭。实际支持条件及验证范围见[网格质量说明](docs/reference/mesh-quality.md)与[验收记录](docs/acceptance.md)。
 
 各项功能的 deck、网格类型、几何形状、实体范围与执行前置条件见[工具参考](docs/tools.md)及其专项契约。
 
@@ -186,7 +192,7 @@ py -3.12 -m venv .venv
 
 满足以下条件后，即可开始使用：
 
-- **客户端已加载工具**：当前版本可发现 65 个工具，至少应包含 `ansa_connection_status` 和 `ansa_model_snapshot`。
+- **客户端已加载工具**：当前版本可发现 69 个工具，至少应包含 `ansa_connection_status` 和 `ansa_model_snapshot`。
 - **面板已连接目标**：后端在线、任务可受理，AI 目标为当前 ANSA 实例。
 - **模型可读取**：连接状态与模型快照均返回成功，目标进程、模型路径和 deck 与当前窗口一致。
 
@@ -202,7 +208,7 @@ py -3.12 -m venv .venv
 | --- | --- |
 | [安装与回退](docs/installation.md) | 外部 wheel、原生包、运行配置与版本切换 |
 | [架构说明](docs/architecture.md) | 包职责、主线程、目标与模型身份、持久任务 |
-| [工具参考](docs/tools.md) | 65 个接口及分类契约 |
+| [工具参考](docs/tools.md) | 69 个接口及分类契约 |
 | [开发说明](docs/development.md) | 环境、源码目录、构建和验证入口 |
 | [验证范围](docs/acceptance.md) | 当前回归、既有真机证据与已知限制 |
 | [发布说明](docs/releasing.md) | 源码边界、配套产物与发布步骤 |

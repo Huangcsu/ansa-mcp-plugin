@@ -51,7 +51,7 @@ class ConnectionMcpChecks(unittest.IsolatedAsyncioTestCase):
 
     async def test_main_registration_and_read_write_classification(self):
         tools = await create_server(SimpleNamespace()).list_tools()
-        self.assertEqual(len(tools), 65)
+        self.assertEqual(len(tools), 69)
         self.assertTrue({"ansa_connection_list", "ansa_connection_create"}.issubset({tool.name for tool in tools}))
         self.assertTrue({"connection_list", "connection_create"}.issubset(TASK_TOOLS))
         self.assertFalse(writes_model("connection_list"))

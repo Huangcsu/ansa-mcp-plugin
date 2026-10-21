@@ -200,6 +200,9 @@ def execute(state, tool, params):
     if tool == "mesh_workflow":
         from . import mesh_workflow
         return mesh_workflow.execute(state, tool, params)
+    if tool in {"quality_report", "quality_page", "quality_locate", "quality_repair"}:
+        from . import quality_workflow
+        return quality_workflow.execute(state, tool, params)
     if tool == "benchmark_run":
         from . import benchmark
         return benchmark.execute(state, tool, params)

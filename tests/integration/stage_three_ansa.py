@@ -90,6 +90,10 @@ EXPECTED_TOOLS = frozenset({
     "ansa_benchmark_run",
     "ansa_connection_apply",
     "ansa_log_read",
+    "ansa_mesh_quality_report",
+    "ansa_mesh_quality_page",
+    "ansa_mesh_quality_locate",
+    "ansa_mesh_quality_repair",
 })
 TERMINAL_TASK_STATES = frozenset({"succeeded", "failed", "cancelled", "expired", "unknown"})
 PANEL_WAIT_SECONDS = 900

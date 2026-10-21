@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import threading
 import time
-from ansa_mcp_shared.operations import writes_model
+from ansa_mcp_shared.operations import writes_model, model_write_allowed, LIMITED_WRITE_TOOLS
 import sys
 import uuid
 
@@ -78,7 +78,7 @@ class BridgeState:
             raise RuntimeError("Task model context is stale")
         if writes_model(task["tool"]):
             self.check_conflict()
-            if not model["write_enabled"]:
+            if not model_write_allowed(model, task["tool"]):
                 raise RuntimeError("Reliable model replacement detection is unavailable; writes are closed")
 
     def _read_authorization(self):
@@ -168,7 +168,9 @@ class BridgeState:
         model_guarded = bool(self._model_witness is not None and self._model_witness.is_usable())
         grid_guarded = bool(self._witness is not None and self._witness.is_usable() and deck == constants.NASTRAN)
         guarded = bool(scope_supported and deck in (constants.NASTRAN, constants.ABAQUS) and (model_guarded or grid_guarded))
-        self.model_detection = "retained_model_lifetime" if guarded and model_guarded else "retained_grid_lifetime" if guarded else "unwitnessed_write_closed"
+        quality_guarded = bool(scope_supported and deck == getattr(constants, "LSDYNA", None) and model_guarded)
+        write_tools = sorted(LIMITED_WRITE_TOOLS) if quality_guarded else []
+        self.model_detection = "retained_model_lifetime" if (guarded or quality_guarded) and model_guarded else "retained_grid_lifetime" if guarded else "unwitnessed_write_closed"
         snapshot = {
             "pid": self.pid, "process_start": self.process_start,
             "instance_id": self.instance_id, "session_id": self.session_id,
@@ -179,7 +181,8 @@ class BridgeState:
             "model": {"epoch": self.model_epoch, "identity_hint": hint,
                                      "detection": self.model_detection, "database": database,
                                      "write_enabled": guarded,
-                                     "write_scope": "ANSA 2026.1.0, one window/model, NASTRAN or ABAQUS with a retained usable model witness"},
+                                     "write_tools": write_tools,
+                                     "write_scope": "ANSA 2026.1.0, one window/model; general writes: NASTRAN/ABAQUS; LS-DYNA: quality_locate/quality_repair only, with a retained usable model witness"},
             "version": version, "model_counts": list(counts), "multiple_models_seen": self._multiple_models_seen,
             "authorization": self.authorization,
             "connected": self.connected.is_set(), "stopped": self.stopped.is_set(),

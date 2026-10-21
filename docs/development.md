@@ -71,12 +71,26 @@ $smokeHome = Join-Path $env:USERPROFILE ('ANSA-MCP-Plugin-Runtime\smoke-' + [gui
 | `stage_three_abaqus_contact_ansa.py` | 接触关系、厚度、距离与节点采样 |
 | `stage_three_abaqus_mesh_workflow_ansa.py` | 拉伸、镜像、节点合并与释放 |
 | `stage_three_ribbon_lifecycle.py` | 原生入口、模态窗口和生命周期 |
+| `quality_workflow_ansa.py` | 明确归属的独立 ANSA 主线程，壳／实体 × 线性／显式的质量修复及保存重开 |
+| `quality_templates_ansa.py` | 四模板原生主路径，ABAQUS S4R/C3D8R 与 LS-DYNA 壳／实体，原生问题、时间步、修复及保存重开 |
+| `quality_mcp_ansa.py` | 四模板公开 MCP→TCP→ANSA 主线程质量链路，LS-DYNA 限定门控、旧模型上下文拒绝、位移回滚及独立回读 |
+| `quality_large_ansa.py` | 独立2601个壳单元，经公开MCP分批报告和分页完整ID核对；确认网格与全局准则不变 |
 | `stage_four_external_install.py` | 已安装外部服务的无源码启动 |
 | `stage_four_native_install.py`、`stage_four_native_followup.py` | 独立原生安装与所属窗口续验 |
 
 从 `tests/integration/` 调用这些入口，先读其 `--help` 及准备/续验条件。续验脚本依赖原实例和原任务，不能把旧报告目录作为新验收反复覆盖。主线程、目标归属及报告分层规则见[架构](architecture.md)。
 
+`quality_workflow_ansa.py --identity <remote_basic.json> --port <port> --run-dir <新目录>` 要求与 `stage_three_ansa.py` 独立启动参数完全匹配的 PID 和 `program_args`，每次写入前在 ANSA 主线程重新核对。入口会清空该独立夹具并创建新模型；不得传入用户工作进程的身份。输出按四组分别记录原生回包、备份、独立复查和保存重开。它直接验证生产操作适配器，不等于三项新工具已完成 MCP 至原生 GUI 的全链路验收。
+
+`quality_templates_ansa.py --verify-gui-location` 同时逐准则核对定位集合、完整 FE 快照及汇总数量，并保存原生画布；`--require-native-fix` 要求 Fix Quality 本身改善，不能用平滑替代。公开 MCP 与 LS-DYNA 写入门控的实际验收范围见[验证记录](acceptance.md)。
+
+在同一已核验独立实例完成原生夹具后，运行 `quality_mcp_ansa.py --run-dir <stage-three准备目录> --identity <remote_basic.json> --fixtures <该准备目录内的原生夹具目录>`。入口核对唯一 translator、PID 与完整参数；它自行启动本轮私有 MCP 后端与桥接，不启动或停止 ANSA。只对该目录中的合成模型执行操作，输出新验证目录。结束后另行核对归属并关闭独立实例；不能指向用户工作进程。
+
+`quality_mcp_ansa.py` 的壳夹具省略可移动节点以验证自动推导；实体夹具固定中心节点，`max_iterations=4` 验证一次任务内续修及累计位移。`quality_large_ansa.py --run-dir <同一准备目录> --fixtures <原生夹具目录>` 在所属实例创建独立2601单元合成模型，通过新增 `ansa_mesh_quality_page` 逐页核对完整明细；2601是验收规模，不是产品上限。两个入口串行运行，不与同一模型的其他写操作并发。
+
 ## 文档与发行维护
+
+`quality_templates_ansa.py` 可用 `--require-native-fix` 要求 Fix Quality 自身改善并恢复准则；`--verify-gui-location` 在独立 GUI 先定位并回读可见集合、保留原生快照。仅使用已核验归属的 identity 和新的输出目录；出现 `recovery_required` 时停止后续夹具。改善不等于全部通过，画布与 MCP 全链路的验收口径见[验证范围](acceptance.md)。
 
 `docs/tools.md` 维护当前工具分组；`docs/tool-mapping.json` 和 `docs/reference/legacy-mapping.md` 保留功能迁移对应。修改映射后运行 `scripts/update_tool_mapping.py`，不依赖本机原始报告。
 

@@ -228,7 +228,7 @@ async def verify(args):
                         raise AssertionError('Installed native panel is not visible in the owned ANSA')
                     report['identity'] = entry
                     record('official_ribbon_installed_origins_and_bound_panel', observation=observed, target=h.target)
-                    record('installed_wheel_stdio_tcp_and_65_schemas', schemas=schemas, snapshot=snap)
+                    record('installed_wheel_stdio_tcp_and_69_schemas', schemas=schemas, snapshot=snap)
                     fields = {'deck': 4, 'entity_type': 'NODE', 'fields': {'X': 125., 'Y': 30., 'Z': 0.}}
                     operation = 'native-node-' + run.name
                     submitted, completed = await h.task('ansa_entity_create', fields, operation_id=operation)

@@ -36,9 +36,13 @@ def create_server(service):
         """Read deck, model context and execution thread from the bound ANSA."""
         try:
             value = service.model_snapshot(expected_target.model_dump())
+            model = value["model"]
+            warnings = ([] if model["write_enabled"] else
+                        ["仅开放网格质量定位／受控修复；其他写入未开放"] if model.get("write_tools") else
+                        ["模型更替检测能力受限；写入未开放"])
             return ToolResult(ok=True, status="succeeded", data=value,
                               target=expected_target, model=value["model"],
-                              warnings=[] if value["model"]["write_enabled"] else ["模型更替检测能力受限；写入未开放"]).as_mcp()
+                              warnings=warnings).as_mcp()
         except (RuntimeError, OSError, ValueError, LookupError) as exc:
             return ToolResult(ok=False, status="failed", target=expected_target,
                               error=ToolError(code="SNAPSHOT_REJECTED", message=str(exc))).as_mcp()
@@ -183,6 +187,8 @@ def create_server(service):
     register_benchmark(server, submit)
     from .mcp.connection_apply import register as register_connection_apply
     register_connection_apply(server, submit)
+    from .mcp.quality_workflow import register as register_quality_workflow
+    register_quality_workflow(server, submit)
     from .mcp.logs import register as register_logs
     register_logs(server, service)
     return server

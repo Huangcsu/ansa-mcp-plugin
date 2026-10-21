@@ -44,11 +44,11 @@ class NativeReleaseTests(unittest.TestCase):
 
     def test_stage_contains_only_allowlisted_files_with_sha256_manifest(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            output = stage_native_release.stage_release(Path(temp_dir) / "native-0.1.1")
+            output = stage_native_release.stage_release(Path(temp_dir) / "native-0.1.2")
             manifest_path = output / "SHA256SUMS.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-            self.assertEqual(manifest["version"], "0.1.1")
+            self.assertEqual(manifest["version"], "0.1.2")
             self.assertEqual(manifest["module_root"], "AnsaMcpPlugin_root")
             self.assertEqual(manifest["ppl"], "AnsaMcpPlugin.ppl")
             expected = {
@@ -73,7 +73,7 @@ class NativeReleaseTests(unittest.TestCase):
 
     def test_stage_refuses_to_overwrite_existing_output(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            output = Path(temp_dir) / "native-0.1.1"
+            output = Path(temp_dir) / "native-0.1.2"
             output.mkdir()
             sentinel = output / "keep.txt"
             sentinel.write_text("preserve", encoding="utf-8")
@@ -86,7 +86,7 @@ class NativeReleaseTests(unittest.TestCase):
     def test_directory_and_zip_import_use_bundled_aliases_without_source_tree(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            staged = stage_native_release.stage_release(root / "native-0.1.1")
+            staged = stage_native_release.stage_release(root / "native-0.1.2")
             archive_path = root / "native-package.bpkgo.zip"
             with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
                 for path in sorted((staged / "AnsaMcpPlugin_root").rglob("*")):
@@ -168,7 +168,7 @@ assert all(
     def test_official_nested_app_import_and_foreign_rejection(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            staged = stage_native_release.stage_release(root / "native-0.1.1")
+            staged = stage_native_release.stage_release(root / "native-0.1.2")
             archive_path = self._official_nested_archive(staged, root)
 
             program = r'''

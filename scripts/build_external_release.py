@@ -18,11 +18,11 @@ from pathlib import Path, PurePosixPath
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_NAME = "ansa-mcp-plugin"
-EXPECTED_VERSION = "0.1.1"
+EXPECTED_VERSION = "0.1.2"
 DEFAULT_OUTPUT_RELATIVE = Path("dist") / f"v{EXPECTED_VERSION}"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / DEFAULT_OUTPUT_RELATIVE
 PACKAGE_ROOTS = frozenset({"ansa_mcp_plugin", "ansa_mcp_shared"})
-EXPECTED_DIST_INFO = "ansa_mcp_plugin-0.1.1.dist-info"
+EXPECTED_DIST_INFO = "ansa_mcp_plugin-0.1.2.dist-info"
 EXPECTED_RUNTIME_DEPENDENCIES = frozenset({"mcp", "pydantic"})
 FORBIDDEN_PATH_PARTS = frozenset(
     {
@@ -92,7 +92,7 @@ def _check_member_content(name: str, content: bytes) -> None:
 def audit_wheel(wheel_path: Path) -> dict[str, object]:
     """Validate wheel paths, payloads, and distribution metadata."""
     wheel_path = Path(wheel_path)
-    if not wheel_path.name.startswith("ansa_mcp_plugin-0.1.1-") or not wheel_path.name.endswith(".whl"):
+    if not wheel_path.name.startswith("ansa_mcp_plugin-0.1.2-") or not wheel_path.name.endswith(".whl"):
         raise ReleaseBuildError(f"wheel 文件名与 {EXPECTED_VERSION} 不符: {wheel_path.name}")
 
     try:

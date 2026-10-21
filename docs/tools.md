@@ -1,6 +1,6 @@
 # MCP 工具参考
 
-当前注册 65 个 MCP 工具。工具的实际输入与输出 schema 由服务返回；下表提供能力入口，具体范围见对应参考。
+当前注册 69 个 MCP 工具。工具的实际输入与输出 schema 由服务返回；下表提供能力入口，具体范围见对应参考。
 
 ## 当前入口
 
@@ -22,6 +22,7 @@
 | 接触（1） | `ansa_contact_inspect` |
 | 几何（3） | `ansa_geometry_select`、`ansa_geometry_preview`、`ansa_geometry_delete` |
 | 检查（6） | `ansa_check_run`、`ansa_mesh_check`、`ansa_mesh_failed_elements`、`ansa_mesh_intersections`、`ansa_mesh_penetrations`、`ansa_rigid_dependencies` |
+| 分析类型网格质量（4） | `ansa_mesh_quality_report`、`ansa_mesh_quality_page`、`ansa_mesh_quality_locate`、`ansa_mesh_quality_repair` |
 | 脚本与 API（3） | `ansa_script_validate`、`ansa_script_execute`、`ansa_api_reference` |
 
 `ansa_model_inspect` 的 `action` 合并几何统计、FACE 属性、实体度量、ABAQUS 质量/表面成员、几何/网格检查及显示操作。不同 action 的支持 deck 与参数独立验证。
@@ -40,7 +41,8 @@
 | --- | --- |
 | [ABAQUS](reference/abaqus.md) | QUAD、HEXA8、网格后续操作、机构、接触与质量 |
 | [模型与操作](reference/operations.md) | 模型文件、实体、组织、几何、检查和连接 |
+| [网格质量](reference/mesh-quality.md) | 四类原生模板、ANSA 项目准则、报告／定位／受控修复与旧 profile 兼容 |
 | [任务、脚本及 API](reference/tasks-api.md) | 状态、幂等、取消、恢复、日志、记忆和脚本 |
 | [验证范围](acceptance.md) | 当前环境、既有证据和未验证范围 |
 
-旧 79 项是迁移功能口径，65 项是当前注册接口口径，两者不能直接比较。历史入口对应保留在[迁移映射](reference/legacy-mapping.md)和机器可读 [tool-mapping.json](tool-mapping.json)，不作为当前完整 schema。
+旧 79 项是迁移功能口径，69 项是当前注册接口口径，两者不能直接比较。历史入口对应保留在[迁移映射](reference/legacy-mapping.md)和机器可读 [tool-mapping.json](tool-mapping.json)，不作为当前完整 schema。

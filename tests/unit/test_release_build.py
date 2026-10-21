@@ -25,9 +25,9 @@ release_build = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release_build)
 
 
-def _write_test_wheel(directory: Path, *, extra_files=(), version="0.1.1", requires_dist=None) -> Path:
-    wheel_path = directory / "ansa_mcp_plugin-0.1.1-py3-none-any.whl"
-    dist_info = "ansa_mcp_plugin-0.1.1.dist-info"
+def _write_test_wheel(directory: Path, *, extra_files=(), version="0.1.2", requires_dist=None) -> Path:
+    wheel_path = directory / "ansa_mcp_plugin-0.1.2-py3-none-any.whl"
+    dist_info = "ansa_mcp_plugin-0.1.2.dist-info"
     dependencies = requires_dist or ("mcp>=1.30,<2", "pydantic>=2.11,<3")
     metadata = "\n".join(
         [
@@ -58,7 +58,7 @@ class ReleaseBuildTests(unittest.TestCase):
     def test_default_output_directory_uses_versioned_release_path(self):
         self.assertEqual(
             release_build.DEFAULT_OUTPUT_DIR,
-            PROJECT_ROOT / "dist" / "v0.1.1",
+            PROJECT_ROOT / "dist" / "v0.1.2",
         )
 
     def test_project_declares_pep639_license_and_author_metadata(self):
@@ -89,14 +89,14 @@ class ReleaseBuildTests(unittest.TestCase):
             wheel = _write_test_wheel(Path(temp_dir))
             audit = release_build.audit_wheel(wheel)
 
-        self.assertEqual(audit["version"], "0.1.1")
+        self.assertEqual(audit["version"], "0.1.2")
         self.assertEqual(
             {name.split("/", 1)[0] for name in audit["files"] if "/" in name},
-            {"ansa_mcp_plugin", "ansa_mcp_shared", "ansa_mcp_plugin-0.1.1.dist-info"},
+            {"ansa_mcp_plugin", "ansa_mcp_shared", "ansa_mcp_plugin-0.1.2.dist-info"},
         )
 
     def test_audit_accepts_dist_info_license_file(self):
-        relative_license = "ansa_mcp_plugin-0.1.1.dist-info/licenses/LICENSE"
+        relative_license = "ansa_mcp_plugin-0.1.2.dist-info/licenses/LICENSE"
         with tempfile.TemporaryDirectory() as temp_dir:
             wheel = _write_test_wheel(
                 Path(temp_dir),
