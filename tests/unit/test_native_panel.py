@@ -30,7 +30,8 @@ class NativePanelGui:
         self.constants = types.SimpleNamespace(BCOnExitHide=1, BCOnExitDestroy=2,
                                               BCHorizontal=3, BCVertical=4,
                                               BCAlignLeft=5, BCWidgetWidth=6,
-                                              BCWrapAtWordBoundaryOrAnywhere=7)
+                                              BCWrapAtWordBoundaryOrAnywhere=7,
+                                              BCMinimizeButton=8, BCMaximizeButton=16, BCCloseButton=32)
 
     def module(self):
         guitk = types.SimpleNamespace(
@@ -39,6 +40,7 @@ class NativePanelGui:
             BCGetTopWidget=self.get_top_widget,
             BCWindowCreate=self.create_window,
             BCWindowSetModal=Mock(),
+            BCWindowShowTitleBarButtons=lambda window, buttons: window.update(title_bar_buttons=buttons),
             BCWindowSetOnCloseFunction=self.set_close,
             BCWindowSetAcceptFunction=self.set_accept,
             BCWindowSetRejectFunction=self.set_reject,
@@ -229,6 +231,8 @@ class NativePanelLifecycleChecks(unittest.TestCase):
     def test_buttons_show_admission_offline_error_and_confirmed_binding(self):
         bridge = self.make_bridge()
         def exercise_inside_bcshow(window):
+            self.assertEqual(window['title_bar_buttons'], self.gui.constants.BCMinimizeButton |
+                             self.gui.constants.BCMaximizeButton | self.gui.constants.BCCloseButton)
             context = window["on_close"][1]
             native_panel._on_stop(None, context)
             self.assertTrue(bridge.state.stopped.is_set())

@@ -2,6 +2,15 @@
 
 本文说明持久任务、查询恢复、日志、本机记忆、脚本和 ANSA API 查询的共同语义。ABAQUS 工具见[ABAQUS 工具契约](abaqus.md)，模型与检查工具见[通用操作](operations.md)。
 
+## 连接状态与恢复
+
+`ansa_connection_status` 区分共享后端不可用、桥接失败、主线程未响应和未绑定目标：
+
+- 后端未就绪时返回 `status=blocked`，错误码为 `BACKEND_STARTING`、`BACKEND_BUSY`、`BACKEND_OFFLINE` 或 `BACKEND_AUTH`；`data.retryable` 表示是否适合稍后重试状态查询。认证或私有目录校验失败需先检查配置与权限。
+- 后端就绪时，`data.instances[].connection_state` 为 `bound`、`unbound` 或 `unavailable`；失败实例同时返回 `failure_stage`（`connect` 或 `main_thread_probe`）与 `error`。主线程探测超时不证明 ANSA 进程断开。
+- `data.connection_diagnostics` 按实例保留当前连接失败阶段、原因、次数和 `retry_in_seconds`。连接超时为2秒，认证超时为5秒，失败退避为1、2、4、8、15秒，之后上限15秒；连接恢复或实例失效后清除该记录。
+- 共享后端重启会改变 `backend_id`，旧目标上下文不能继续用于新操作；先在所属 ANSA 面板重新绑定，再获取模型快照。传输失败不自动重发模型请求，须用原 `operation_id` 查询任务。
+
 ## 任务回包
 
 以下封装适用于持久模型任务；连接状态、同步快照和本机记忆等入口直接在 `data` 返回各自结果。
@@ -16,6 +25,8 @@
 | `error`、`warnings`、`artifacts` | 结构化错误、警告和附件 |
 
 任务成功表示 ANSA 调用和持久化流程完成；业务问题仍由 `data.result` 中的检查、错误和完整性字段表达。
+
+共享后端的提交请求可能已经送达但回包丢失或无效时，返回 `status=unknown`、`error.code=TASK_UNKNOWN`，保留原 `operation_id`、目标与模型；尚未获知的 `task_id` 为 `null`。此时先用原 `operation_id` 查询并独立回读，不能视为任务被拒绝或改用新操作键重试。请求在本地校验或建连前失败、以及后端明确拒绝时，仍返回失败。
 
 ## 上下文与操作键
 
@@ -47,7 +58,7 @@
 `ansa_task_list(limit=30, state=None, before_sequence=None)` 直接读取当前运行目录的持久历史，不需要活动 ANSA 目标。
 
 - `limit` 为严格整数 1–100；`state` 可选七种状态之一；`before_sequence` 为持久序号游标。
-- `data.tasks` 返回 `task_id`、`operation_id`、`state`、`tool`、`dispatch`、`cancel_pending`、`target` 和 `model` 摘要，不返回请求参数、脚本或结果正文。
+- `data.tasks` 返回 `task_id`、`operation_id`、`state`、`tool`、`dispatch`、`cancel_pending`、`target` 和 `model` 摘要，不返回请求参数、脚本或结果正文；共享后端在传输前提取摘要，避免多个大任务结果使历史列表超过通信帧限制。
 - `has_more` 和 `next_before_sequence` 支持从新到旧的稳定续页；新任务不会挤入已开始的续页。游标只适用于同一运行目录。
 
 `ansa_log_read(max_chars=65536)` 读取当前运行目录最新模型任务的持久结果/错误和最近最多 200 项任务元数据，不连接或执行 ANSA，不接受文件路径。`max_chars` 为 1–65536。回包用 `found/available` 区分无任务与无正文；最新任务没有结果时不退回旧结果。正文被截断时，内联 `result/error` 为 `null`，完整内容进入内容寻址的私有 JSON 附件，并返回 SHA-256。该工具不恢复未持久化的 stdout、外部控制台或安装日志。

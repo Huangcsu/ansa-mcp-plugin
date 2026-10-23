@@ -19,6 +19,11 @@ from .log_reader import TaskLogReader
 from .scheduler import TaskScheduler, ContextMismatchError
 
 
+_CONNECTION_TIMEOUT = 2.0
+_AUTHENTICATION_TIMEOUT = 5.0
+_RECONNECT_MAX_SECONDS = 15.0
+
+
 class Service(TaskScheduler):
     def __init__(self, runtime_home):
         ensure_safe_parent(runtime_home)
@@ -51,6 +56,8 @@ class Service(TaskScheduler):
             self.lock.close()
             raise
         self.connections = {}
+        self._connecting = set()
+        self._connection_diagnostics = {}
         self._lock = threading.RLock()
         self.last_error = None
         self.closed = False
@@ -99,49 +106,136 @@ class Service(TaskScheduler):
 
     def _discover_loop(self):
         """认证连接在调度锁外完成；目标授权仍只响应面板请求。"""
-        retry_after = {}
         while not self._stop_scheduler.wait(.5):
-            for registration in self.discover():
-                instance_id = registration["instance_id"]
-                with self._lock:
-                    existing = self.connections.get(instance_id)
+            registrations = self.discover()
+            self._prune_connection_state(registrations)
+            for registration in registrations:
+                try:
+                    self._connect(registration)
+                except Exception:
+                    # _connect records actual failures; in-progress connections
+                    # and backoff are not new failures and must not extend it.
                     if self.closed:
                         return
-                    if existing and not existing.closed and existing.registration == registration:
-                        continue
-                if time.monotonic() < retry_after.get(instance_id, 0):
-                    continue
-                try:
-                    candidate = BridgeConnection(registration, self.token, self._panel_bind, backend_id=self.backend_id,
-                                                 connect_timeout=.5, start_reader=False)
-                except (OSError, RuntimeError, ValueError, KeyError, TypeError):
-                    retry_after[instance_id] = time.monotonic() + 10
-                    continue
-                with self._lock:
-                    existing = self.connections.get(instance_id)
-                    if self.closed or (existing and not existing.closed and existing.registration == registration):
-                        candidate.close()
-                    else:
-                        if existing:
-                            existing.close()
-                        self.connections[instance_id] = candidate
-                        try:
-                            candidate.start_reader()
-                        except Exception:
-                            candidate.close()
-                            self.connections.pop(instance_id, None)
-                            retry_after[instance_id] = time.monotonic() + 10
 
     def _connect(self, registration):
         instance_id = registration["instance_id"]
-        existing = self.connections.get(instance_id)
-        if existing and not existing.closed and existing.registration == registration:
-            return existing
-        if existing:
-            existing.close()
-        connection = BridgeConnection(registration, self.token, self._panel_bind, backend_id=self.backend_id)
-        self.connections[instance_id] = connection
-        return connection
+        with self._lock:
+            if self.closed:
+                raise RuntimeError("Backend is stopping")
+            existing = self.connections.get(instance_id)
+            if existing and not existing.closed and existing.registration == registration:
+                return existing
+            if instance_id in self._connecting:
+                raise ConnectionError("ANSA bridge connection is being established")
+            if existing:
+                self.connections.pop(instance_id, None)
+                if existing.closed and existing.failure_reason:
+                    self._record_connection_failure(
+                        registration, existing.failure_stage or "reader", existing.failure_reason
+                    )
+                existing.close()
+            remaining = self._connection_retry_remaining(registration)
+            if remaining > 0:
+                diagnostic = self._connection_diagnostics[instance_id]
+                raise ConnectionError(
+                    f"ANSA bridge reconnect is delayed for {remaining:.1f}s: {diagnostic['failure_reason']}"
+                )
+            self._connecting.add(instance_id)
+        connection = None
+        try:
+            connection = BridgeConnection(
+                registration, self.token, self._panel_bind, backend_id=self.backend_id,
+                connect_timeout=_CONNECTION_TIMEOUT, auth_timeout=_AUTHENTICATION_TIMEOUT, start_reader=False,
+            )
+            with self._lock:
+                if self.closed:
+                    raise RuntimeError("Backend is stopping")
+                self.connections[instance_id] = connection
+                connection.start_reader()
+                self._clear_connection_failure(instance_id)
+            return connection
+        except Exception as exc:
+            if connection is not None:
+                connection.close()
+                with self._lock:
+                    if self.connections.get(instance_id) is connection:
+                        self.connections.pop(instance_id, None)
+            self._record_connection_failure(registration, getattr(exc, "connection_stage", "connect"), exc)
+            raise
+        finally:
+            with self._lock:
+                self._connecting.discard(instance_id)
+
+    @staticmethod
+    def _registration_identity(registration):
+        return tuple(registration.get(key) for key in ("pid", "process_start", "session_id", "port"))
+
+    @staticmethod
+    def _retry_delay(failure_count):
+        exponent = min(max(failure_count - 1, 0), 4)
+        return min(float(2 ** exponent), _RECONNECT_MAX_SECONDS)
+
+    @staticmethod
+    def _failure_reason(reason):
+        if isinstance(reason, BaseException):
+            return str(reason).strip() or type(reason).__name__
+        return str(reason).strip() or "Unknown connection failure"
+
+    def _record_connection_failure(self, registration, stage, reason):
+        instance_id = registration["instance_id"]
+        identity = self._registration_identity(registration)
+        with self._lock:
+            previous = self._connection_diagnostics.get(instance_id)
+            count = previous["failure_count"] + 1 if previous and previous["registration"] == identity else 1
+            delay = self._retry_delay(count)
+            self._connection_diagnostics[instance_id] = {
+                "registration": identity,
+                "failure_stage": stage or "connect",
+                "failure_reason": self._failure_reason(reason),
+                "failure_count": count,
+                "retry_at": time.monotonic() + delay,
+            }
+
+    def _clear_connection_failure(self, instance_id):
+        with self._lock:
+            self._connection_diagnostics.pop(instance_id, None)
+
+    def _connection_retry_remaining(self, registration):
+        instance_id = registration["instance_id"]
+        with self._lock:
+            diagnostic = self._connection_diagnostics.get(instance_id)
+            if not diagnostic or diagnostic["registration"] != self._registration_identity(registration):
+                return 0.0
+            return max(0.0, diagnostic["retry_at"] - time.monotonic())
+
+    def _connection_diagnostics_snapshot(self):
+        now = time.monotonic()
+        with self._lock:
+            return {
+                instance_id: {
+                    "failure_stage": diagnostic["failure_stage"],
+                    "failure_reason": diagnostic["failure_reason"],
+                    "failure_count": diagnostic["failure_count"],
+                    "retry_in_seconds": round(max(0.0, diagnostic["retry_at"] - now), 3),
+                }
+                for instance_id, diagnostic in sorted(self._connection_diagnostics.items())
+            }
+
+    def _prune_connection_state(self, registrations):
+        active = {item["instance_id"]: self._registration_identity(item) for item in registrations}
+        with self._lock:
+            for instance_id, connection in list(self.connections.items()):
+                if active.get(instance_id) == self._registration_identity(connection.registration):
+                    continue
+                self.connections.pop(instance_id, None)
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+            for instance_id, diagnostic in list(self._connection_diagnostics.items()):
+                if active.get(instance_id) != diagnostic["registration"]:
+                    self._connection_diagnostics.pop(instance_id, None)
 
     def _panel_bind(self, instance_id):
         try:
@@ -275,26 +369,32 @@ class Service(TaskScheduler):
             available = []
             active = None
             active_model = None
-            for registration in self.discover():
+            registrations = self.discover()
+            self._prune_connection_state(registrations)
+            for registration in registrations:
                 entry = {k: registration[k] for k in ("instance_id", "session_id", "pid", "process_start")}
+                stage = "connect"
                 try:
                     connection = self._connect(registration)
+                    stage = "main_thread_probe"
                     snapshot = connection.call("probe")
                     self._check_identity(snapshot, registration)
-                    entry.update(ready=True, deck=snapshot["deck"], deck_name=snapshot.get("deck_name"),
+                    entry.update(ready=True, connection_state="unbound", deck=snapshot["deck"], deck_name=snapshot.get("deck_name"),
                                  version=snapshot.get("version"), model=snapshot["model"])
                     if (current and current["state"] == "active" and current["backend_id"] == self.backend_id
                             and all(snapshot[k] == current[k] for k in ("instance_id", "session_id", "pid", "process_start"))
                             and snapshot["authorization"] == {"backend_id": self.backend_id, "generation": current["generation"], "active": True}):
                         active, active_model = current, snapshot["model"]
+                        entry["connection_state"] = "bound"
                 except Exception as exc:
-                    entry.update(ready=False, error=str(exc))
+                    entry.update(ready=False, connection_state="unavailable", failure_stage=stage, error=str(exc))
                 available.append(entry)
             return {"backend_id": self.backend_id, "active_target": active,
                     "active_model": active_model,
                     "recovery_required": bool(current and current["state"] in ("intent", "active") and not active),
                     "instances": available, "last_error": self.last_error,
                     "dispatch_blocked": self.dispatch_blocked,
+                    "connection_diagnostics": self._connection_diagnostics_snapshot(),
                     "tasks": [{"task_id": r["task_id"], "state": r["state"], "cancel_pending": r["cancel_pending"],
                                "target": r["task"]["target"]} for r in self.tasks.pending()]}
 

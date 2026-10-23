@@ -556,6 +556,8 @@ def _build_window(bridge, guitk):
     window = guitk.BCWindowCreate(_WINDOW_TITLE, guitk.constants.BCOnExitDestroy)
     context["window"] = window
     guitk.BCWindowSetModal(window, False)
+    guitk.BCWindowShowTitleBarButtons(window, guitk.constants.BCMinimizeButton |
+                                    guitk.constants.BCMaximizeButton | guitk.constants.BCCloseButton)
     guitk.BCWindowSetOnCloseFunction(window, _on_window_close, context)
     guitk.BCWindowSetAcceptFunction(window, _on_window_accept, context)
     guitk.BCWindowSetRejectFunction(window, _on_window_reject, context)

@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "build" / f"native-{VERSION}"
 PACKAGE_ROOT = "AnsaMcpPlugin_root"
 PPL_SOURCE = Path("packaging/ansa/AnsaMcpPlugin.ppl")

@@ -47,6 +47,24 @@ $smokeHome = Join-Path $env:USERPROFILE ('ANSA-MCP-Plugin-Runtime\smoke-' + [gui
 .\.venv\Scripts\python.exe -B -X utf8 tests/integration/simulated_mcp.py --runtime-home $smokeHome
 ```
 
+重复客户端回归使用另一全新用户私有目录：
+
+```powershell
+$duplicateHome = Join-Path $env:USERPROFILE ('ANSA-MCP-Plugin-Runtime\duplicate-' + [guid]::NewGuid().ToString('N'))
+.\.venv\Scripts\python.exe -B -X utf8 tests/integration/duplicate_client_mcp.py --runtime-home $duplicateHome
+```
+
+该检查验证占用期间的真实 stdio 初始化、69项工具发现、明确占用错误、原会话恢复和恢复后未绑定状态，不连接用户 ANSA 模型。
+
+上述历史流程使用 `--direct-backend` 验证独占后端生命周期。默认共享后端使用以下独立验收：
+
+```powershell
+$sharedHome = Join-Path $env:USERPROFILE ('ANSA-MCP-Plugin-Runtime\shared-' + [guid]::NewGuid().ToString('N'))
+.\.venv\Scripts\python.exe -B -X utf8 tests/integration/shared_backend_mcp.py --runtime-home $sharedHome
+```
+
+验证两个真实 stdio 客户端共用后端、同操作只执行一次、前端退出后绑定保留、后端重启后要求重新绑定和历史任务可查询。模型调用由模拟桥接执行，不代表 ANSA 图形验收。
+
 ## 开发入口与构建
 
 源码链接安装、外部 wheel、原生包暂存和回退均见[安装说明](installation.md)。源码开发入口会读取当前工作目录中的源码；独立安装验收需要从无源码目录启动已安装产物。

@@ -7,7 +7,7 @@
 <p align="center"><strong>让 AI 自动化完成 ANSA 前处理任务，执行可追踪，结果可核对。</strong></p>
 
 <p align="center">
-  <img alt="状态：0.1.2 Preview" src="https://img.shields.io/badge/status-0.1.2_preview-e8b46a?style=flat-square">
+  <img alt="状态：0.1.3 Preview" src="https://img.shields.io/badge/status-0.1.3_preview-e8b46a?style=flat-square">
   <img alt="已验收版本：ANSA 2026.1.0" src="https://img.shields.io/badge/ANSA-2026.1.0-315e66?style=flat-square">
   <img alt="外部环境：Python 3.12" src="https://img.shields.io/badge/Python-3.12-315e66?style=flat-square">
   <a href="LICENSE"><img alt="许可证：MIT" src="https://img.shields.io/badge/license-MIT-315e66?style=flat-square"></a>
@@ -23,9 +23,11 @@
 
 ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelcontextprotocol.io/) 集成。支持 MCP stdio 的 AI 客户端可以查询模型、执行受控建模与网格操作，并通过 ANSA 原生控制面板选择目标窗口、查看状态和暂停任务。
 
+源码默认使用共享常驻后端：多个聊天通过各自的 stdio 前端复用同一连接与任务队列，关闭聊天不会停止其他会话的任务。后端重启后仍需在 ANSA 面板重新绑定；启动诊断与升级停止方式见[安装说明](docs/installation.md)。
+
 **当前版本提供 69 个 MCP 工具，以前处理任务的自动化为核心。** 支持几何查询与筛选、表面与体网格生成、网格质量检查以及实体与属性管理；结合脚本扩展、任务追踪和结果回读，让 AI 能够串联这些操作，减少重复性前处理工作，并保留可核对的执行结果。
 
-> **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.2` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。版本变更见[更新记录](CHANGELOG.md)。
+> **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.3` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。版本变更见[更新记录](CHANGELOG.md)。
 
 ## 可以做什么
 

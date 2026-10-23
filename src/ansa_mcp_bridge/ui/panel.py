@@ -774,6 +774,8 @@ def show_panel(bridge, persistent=False):
         window = guitk.BCWindowCreate(_WINDOW_TITLE,
             constants.BCOnExitHide if persistent else constants.BCOnExitDestroy)
         guitk.BCWindowSetModal(window, False)
+        guitk.BCWindowShowTitleBarButtons(window, constants.BCMinimizeButton |
+                                        constants.BCMaximizeButton | constants.BCCloseButton)
         guitk.BCWindowSetInitSize(window, 880, 620)
         root = guitk.BCBoxLayoutCreate(window, constants.BCVertical)
         tabs = guitk.BCTabWidgetCreate(root)

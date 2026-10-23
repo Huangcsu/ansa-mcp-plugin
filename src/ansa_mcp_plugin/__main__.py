@@ -1,4 +1,4 @@
-"""Run the only MCP stdio server for one runtime directory."""
+"""Run an MCP stdio frontend connected to the runtime's shared backend."""
 
 import argparse
 import os
@@ -8,7 +8,9 @@ from typing import Annotated
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult
 
-from .backend.service import Service
+from .backend.recoverable import RecoverableService
+from .backend.lock import BackendBusyError
+from .backend.shared_client import SharedService, BackendUnavailableError, BackendOutcomeUnknownError
 from .backend.scheduler import TaskNotFoundError
 from pydantic import Field, FiniteFloat
 from .mcp.schemas import ExpectedTarget, ExpectedModel, ToolError, ToolResult, _forbid_extra_arguments
@@ -27,6 +29,12 @@ def create_server(service):
         """List registered ANSA instances and the panel-bound target context."""
         try:
             return ToolResult(ok=True, status="ready", data=service.status()).as_mcp()
+        except BackendBusyError as exc:
+            return ToolResult(ok=False, status="blocked", data={"retryable": True},
+                              error=ToolError(code="BACKEND_BUSY", message=str(exc))).as_mcp()
+        except BackendUnavailableError as exc:
+            return ToolResult(ok=False, status="blocked", data={"retryable": exc.code != "AUTH", "connection_stage": "backend"},
+                              error=ToolError(code="BACKEND_" + exc.code, message=str(exc))).as_mcp()
         except (RuntimeError, OSError, ValueError) as exc:
             return ToolResult(ok=False, status="failed", error=ToolError(
                 code="STATUS_UNAVAILABLE", message=str(exc))).as_mcp()
@@ -75,6 +83,10 @@ def create_server(service):
     def submit(tool, params, operation_id, target, model, ttl):
         try:
             return task_result(service.submit_task(tool, params, operation_id, target.model_dump(), model.model_dump(), ttl))
+        except BackendOutcomeUnknownError as exc:
+            return ToolResult(ok=False, status="unknown", operation_id=operation_id, target=target,
+                              model=model.model_dump(), error=ToolError(code="TASK_UNKNOWN", message=str(exc)),
+                              warnings=["提交结果未知；请用原 operation_id 查询任务并独立回读，不能用新 operation_id 重试"]).as_mcp()
         except Exception as exc:
             return ToolResult(ok=False, status="failed", operation_id=operation_id, target=target, model=model.model_dump(),
                               error=ToolError(code="TASK_REJECTED", message=str(exc))).as_mcp()
@@ -197,12 +209,14 @@ def create_server(service):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime-home", default=os.environ.get("ANSA_MCP_PLUGIN_HOME"))
+    parser.add_argument("--direct-backend", action="store_true",
+                        help="Use the legacy process-owned backend for isolated tests")
     args = parser.parse_args(argv)
     if not args.runtime_home:
         parser.error("--runtime-home or ANSA_MCP_PLUGIN_HOME is required")
     service = None
     try:
-        service = Service(args.runtime_home)
+        service = RecoverableService(args.runtime_home) if args.direct_backend else SharedService(args.runtime_home)
         create_server(service).run(transport="stdio")
         return 0
     except Exception as exc:

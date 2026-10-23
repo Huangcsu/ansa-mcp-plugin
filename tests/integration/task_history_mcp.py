@@ -96,7 +96,7 @@ async def wait_condition(predicate):
 
 def parameters(home):
     return StdioServerParameters(command=sys.executable,
-        args=['-B', '-m', 'ansa_mcp_plugin', '--runtime-home', str(home)],
+        args=['-B', '-m', 'ansa_mcp_plugin', '--direct-backend', '--runtime-home', str(home)],
         env={**os.environ, 'PYTHONPATH': str(ROOT / 'src'), 'PYTHONDONTWRITEBYTECODE': '1'})
 
 

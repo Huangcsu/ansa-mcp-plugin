@@ -6,7 +6,8 @@ ANSA MCP Plugin 将外部 MCP 服务与 ANSA 内部执行器分开。生产通�
 
 ```mermaid
 flowchart LR
-    Client[MCP 客户端] -->|stdio| Backend[外部服务]
+    Client[MCP 客户端] -->|stdio| Frontend[各会话的轻量前端]
+    Frontend -->|本机认证 RPC| Backend[共享常驻后端]
     Backend --> Store[(SQLite 任务库)]
     Backend -->|本机 TCP| Transport[ANSA 通信线程]
     Transport --> Queue[串行队列]
@@ -29,6 +30,12 @@ flowchart LR
 ## 目标与模型身份
 
 发现 ANSA 实例只建立通信。用户在目标 ANSA 面板点击连接后，后端才取得活动目标。一个私有运行目录同时只允许一个后端使用。
+
+默认启动轻量 stdio 前端，后台发现或启动一个共享常驻后端；多个聊天复用相同后端身份、目标绑定、SQLite 和串行任务队列。关闭前端不终止后端，也不撤销其他客户端正在使用的绑定。不同客户端需要为不同操作使用唯一 `operation_id`；同键同请求仍只受理一次，同键不同请求仍拒绝。
+
+MCP 握手与后端初始化分离。运行目录被旧版独占后端占用时，工具发现仍可用，状态查询返回明确错误。共享 RPC 只监听本机，校验私有目录、端点进程创建时间、协议与令牌，只允许固定方法；不接受任意 Python 调用。请求一旦发送，响应丢失时不会自动重发；须查询原操作。
+
+后端真正重启时生成新身份，必须在 ANSA 面板重新绑定、重新读取模型上下文，不能自动接管旧授权。程序不会强杀已有后端、删除占用锁或放宽私有目录权限。`--direct-backend` 保留进程独占方式，仅供历史验收和诊断使用。
 
 模型任务携带最近取得的 `expected_target`、`expected_model`。执行前核对实例、会话、目标代次、模型代次、deck 与实体前置条件。New/Open、目标切换或会话重启后，调用方需要重新取得上下文。
 

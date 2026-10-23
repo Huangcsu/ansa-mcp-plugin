@@ -23,7 +23,8 @@ class PanelLifecycleChecks(unittest.TestCase):
         self.close_event = "on_close"
         self.scenario = lambda window: None
         self.gui = types.ModuleType("guitk")
-        self.gui.constants = types.SimpleNamespace(BCOnExitDestroy=1, BCVertical=2, BCHorizontal=3, BCOnExitHide=4)
+        self.gui.constants = types.SimpleNamespace(BCOnExitDestroy=1, BCVertical=2, BCHorizontal=3, BCOnExitHide=4,
+                                                  BCMinimizeButton=8, BCMaximizeButton=16, BCCloseButton=32)
         self.gui.BCWindowCreate = self.create_window
         self.gui.BCGetTopLevelWidget = lambda name: self.registry.get(name)
         self.gui.BCIsVisible = self.is_visible
@@ -37,6 +38,7 @@ class PanelLifecycleChecks(unittest.TestCase):
         self.gui.BCTabWidgetAddTab = Mock()
         self.gui.BCTabWidgetSetCurrentTab = Mock()
         self.gui.BCWindowSetModal = Mock()
+        self.gui.BCWindowShowTitleBarButtons = Mock()
         self.gui.BCWindowSetInitSize = Mock()
         self.gui.BCWindowSetSize = Mock()
         self.gui.BCTimerSingleShot = Mock()
@@ -126,6 +128,9 @@ class PanelLifecycleChecks(unittest.TestCase):
     # ------------------------------------------------------------ 场景
 
     def scenario_timer_refresh_and_reuse(self, window):
+        self.gui.BCWindowShowTitleBarButtons.assert_called_once_with(
+            window, self.gui.constants.BCMinimizeButton | self.gui.constants.BCMaximizeButton |
+            self.gui.constants.BCCloseButton)
         timer = window["timer"]
         self.assertIsNotNone(timer)
         self.assertEqual(timer["ms"], panel._REFRESH_MS)

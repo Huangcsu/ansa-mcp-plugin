@@ -37,7 +37,7 @@ async def verify(installation, report_path):
                 " ('ansa','ansa_mcp_bridge','bcsrpc','grpc')}}))"])],
                 check=True, cwd=unrelated, env=env, capture_output=True, text=True, encoding="utf-8")
             evidence = json.loads(metadata.stdout)
-            if evidence["version"] != "0.1.2" or not all(evidence["excluded_modules"].values()):
+            if evidence["version"] != "0.1.3" or not all(evidence["excluded_modules"].values()):
                 raise AssertionError("发布包版本或 SDK/桥接隔离不符")
             for key in ("plugin_file", "shared_file"):
                 Path(evidence[key]).resolve().relative_to(installation)

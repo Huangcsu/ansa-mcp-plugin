@@ -62,7 +62,7 @@ async def _call(session, name, arguments=None):
 async def _session(runtime_home):
     parameters = StdioServerParameters(
         command=sys.executable,
-        args=["-B", "-m", "ansa_mcp_plugin", "--runtime-home", str(runtime_home)],
+        args=["-B", "-m", "ansa_mcp_plugin", "--direct-backend", "--runtime-home", str(runtime_home)],
         cwd=str(ROOT),
         env={**os.environ, "PYTHONPATH": str(ROOT / "src"),
              "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"},
