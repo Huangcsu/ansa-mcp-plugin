@@ -56,7 +56,11 @@ ANSA 官方 [Checks Manager 资料](https://www.beta-cae.com/pdf/ansa_model_chec
 
 `scope_sha256` 绑定实体卡片／坐标、profile、有效准则、全局准则、原生报告、时间步及材料／属性卡片摘要。后两项操作必须提交该值作为 `expected_scope_sha256`。模型、材料、准则或报告变化后需重新取得报告；它不替代 `expected_target` 与模型代次校验。
 
-大报告保留全部失败／未知 ID 和总体判定，只限制单元明细；`rows_total/rows_returned/rows_truncated` 标记省略。`complete` 表示质量检查完整性，与明细省略不同。需要全部数值时缩小范围或在 ANSA 原生界面查看。
+`scope_sha256` 沿用原有计算方式。本次增加版本 1 的 `scope_components`，以分量摘要辅助诊断范围变化；核心分量为 geometry、profile、criteria、measurement，报告具备时还可包含 native_criteria、effective_criteria、dependencies。定位／修复请求可附 `expected_scope_components`；拒绝时回包提供 expected、actual、`changed_components` 及是否可比较。缺少分量或版本不匹配时不能作分量比较。分量摘要仅解释 scope 拒绝原因，不替代 `expected_scope_sha256`、目标／模型绑定，也不授权修改；本次没有改变 hash 算法或对坐标、拓扑作舍入。
+
+报告新增 `metric_extrema`：对本次报告中有限数值的每个指标给出 `count`、`minimum`、`minimum_entity_id`、`maximum` 和 `maximum_entity_id`。若 `complete=false`，极值只覆盖已检查记录，不能作为全范围结论。
+
+超出 MCP 回包预算或启用全／可见范围分页时，保留完整已检查详情到当前私有会话证据库，并通过 `report_id` 和 `ansa_mesh_quality_page` 提供分页；不静默丢弃剩余检查行。`rows_total/rows_returned/rows_truncated` 描述当前回包，`complete` 描述检查覆盖。每页按 offset、limit（1–200，默认100）、status（all/failed/unknown）和可选 criterion 查询，另受128 KiB预算约束，使用 `next_offset` 读完全部记录。证据只属于原会话和模型代次，`usable_for_mutation=false`；分页历史不能直接授权修复。大型结果的摘要和 `metric_extrema` 先按已检查批次计算；检查不完整时仍须按 incomplete 处理。
 
 所有报告包含 `summary`：`status` 为 `passed`、`failed` 或 `incomplete`，并提供 `checked_count`、`failed_count`、`unknown_count`、`passed_count`。这些摘要计数按元素统计；失败与未知可以重叠，不能直接相加。`violation_summary` 按准则列出 `failed_count`；同一元素违反多个准则时会出现在多个准则组中。该汇总先按完整检查结果计算，再截断 `rows`。
 
@@ -78,6 +82,8 @@ ANSA 官方 [Checks Manager 资料](https://www.beta-cae.com/pdf/ansa_model_chec
 
 `api_invoked` 记录修复 API 是否实际调用；`criteria_synchronized` 和 `criteria_restored` 分别记录临时准则和原始准则的回读结果。`ReadQualityCriteria` 返回成功不能单独证明准则生效；应用或恢复未通过回读时不得报告修复成功。平滑路径不临时加载全局准则。
 
+平滑路径经回读确认全局准则不变时，同样返回 `criteria_restored=true`；`criteria_synchronized=false` 表示没有临时加载。坐标回滚后也按实际准则回读设置恢复标志，准则变化或不可读时仍要求恢复。实际质量是否通过继续看 `quality_passed`，两者不混用。
+
 `max_iterations` 缺省为1，显式设为2–10时允许一次任务内有界续修；每轮重新检查，后续备份名追加 `-iteration-N`。`maximum_total_displacement` 缺省等于 `maximum_displacement`，始终以该次任务开始坐标核算累计位移，而非每轮重新放开限额。全部通过、无改善、约束阻止、异常或轮数耗尽时停止；不自动切换算法、扩大范围或放宽阈值。后续轮次回滚且确认精确恢复时保留此前已验证改善；状态未知时标记恢复要求。`iterations/backups/termination_reason` 提供每轮过程。新任务之间仍需新的报告、操作 ID 与备份，跨任务累计位移由调用方按项目基线控制。
 
 修复结果提供 `quality_passed`；`repair_outcome` 仅在成功路径返回，取值为 `already_passed`、`fully_repaired`、`partially_repaired` 或 `unchanged`。`ok=true` 表示操作路径成功，不代表质量已全部通过。
@@ -92,9 +98,9 @@ ANSA 官方 [Checks Manager 资料](https://www.beta-cae.com/pdf/ansa_model_chec
 
 原有 `analysis_type + element_family + criteria` profile 保留：逐单元原生量测后比较显式上下界；旧显式配置仍要求 `minimum_length`，`wave_speed × target_time_step` 仅作规划估算。旧配置省略修复方法仍为 `smooth`。新工作优先使用上述四模板，避免把短边估算作为碰撞主判据。
 
-报告不设固定单元总数上限。`entity_ids` 与 `scope="all"/"visible"` 二选一；超过2000个显式单元、使用 scope 或 `paged=true` 时分批检查并落入当前私有会话的 SQLite 证据库，返回 `report_id` 和完整覆盖摘要。默认 `batch_size=1000`（可选1–2000），原生报告树过大时自动缩小只读批次；`max_seconds=120`、`max_report_megabytes=256` 是可调整资源预算。原生调用本身无法强制中断，预算与暂停在批次之间检查。预算不足、批次失败或检查期间模型变化时 `complete=false`，明确列出 requested/checked 数量，不能把部分结果当全模型通过。
+报告不设固定单元总数上限。`entity_ids` 与 `scope="all"/"visible"` 二选一；超过2000个显式单元、使用 scope 或 `paged=true` 时自动分批、持久化全部已检查明细并返回 `report_id` 和覆盖摘要。默认 `batch_size=1000`（可选1–2000），原生报告树过大时自动缩小只读批次；`max_seconds=120`、`max_report_megabytes=256` 是可调整资源预算。原生调用本身无法强制中断，预算与暂停在批次之间检查。预算不足、批次失败或检查期间模型变化时 `complete=false`，明确列出 requested/checked 数量，不能把部分结果当全模型通过。
 
-`ansa_mesh_quality_page` 按 report_id、offset、limit（1–200，默认100）、status（all/failed/unknown，默认failed）和可选 criterion 查询冻结的报告明细；每页另受128 KiB预算约束，按 `next_offset` 继续。完整ID和明细在证据库中，不把巨大ID数组塞进MCP回包。报告只属于原会话和模型代次；历史快照不是当前重新检查。分批报告的 `usable_for_mutation=false`，修复前须对目标小范围取得新的直接报告。
+`ansa_mesh_quality_page` 按 report_id、offset、limit（1–200，默认100）、status（all/failed/unknown，默认failed）和可选 criterion 查询冻结的完整明细；单页另受128 KiB预算约束，按 `next_offset` 直到返回 null。完整ID、逐项明细和分页摘要保存在证据库中，不把巨大数组塞进单个 MCP 回包。报告只属于原会话和模型代次；历史快照不是当前重新检查。分页报告的 `usable_for_mutation=false`，修复前须对目标小范围取得新的直接报告。
 
 例如检查当前模型全部壳单元：
 

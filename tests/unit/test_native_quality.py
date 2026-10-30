@@ -125,6 +125,14 @@ class NativeQualityTests(unittest.TestCase):
         first = self.run_report(base,profile,"d1")
         second = self.run_report(base,profile,"d2")
         self.assertNotEqual(first["scope_sha256"],second["scope_sha256"])
+        self.assertEqual(first["scope_components"]["version"], 1)
+        self.assertEqual(first["scope_components"]["components"]["dependencies"], "d1")
+        self.assertEqual(second["scope_components"]["components"]["dependencies"], "d2")
+        self.assertEqual(first["scope_components"]["sha256"],
+                         quality_workflow._digest({
+                             "version": 1,
+                             "components": first["scope_components"]["components"],
+                         }))
         base.timestep = 0.
         third = self.run_report(base,profile)
         self.assertFalse(third["complete"])

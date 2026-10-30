@@ -39,7 +39,7 @@ def _limits(params):
     return result
 
 
-def build(state, base, constants, deck, profile, params, reporter):
+def build(state, base, constants, deck, profile, params, reporter, precomputed_report=None):
     from . import quality_workflow as common
     from .native_quality import _dependencies
     limits = _limits(params)
@@ -60,6 +60,11 @@ def build(state, base, constants, deck, profile, params, reporter):
         raise ValueError("scope must be all or visible, or provide explicit entity_ids")
     if len(ids) != len(set(ids)):
         raise ValueError("quality scope contains duplicate entities")
+    if precomputed_report is not None:
+        if (scope != "explicit" or precomputed_report.get("entity_ids") != ids
+                or len(precomputed_report.get("rows", [])) != len(ids)):
+            raise ValueError("precomputed quality report does not match the explicit scope")
+        limits["batch_size"] = max(1, len(ids))
     report_id = uuid.uuid4().hex
     path = _path(state, report_id)
     context = _context(state, deck)
@@ -68,6 +73,7 @@ def build(state, base, constants, deck, profile, params, reporter):
     started = time.monotonic()
     counts = Counter(checked_count=0, failed_count=0, unknown_count=0, passed_count=0)
     violations = Counter()
+    metric_extrema = {}
     hashes = []
     complete = bool(ids)
     reason = None if ids else "empty_scope"
@@ -88,7 +94,9 @@ def build(state, base, constants, deck, profile, params, reporter):
                          "CREATE TABLE violations(seq INTEGER,criterion TEXT,PRIMARY KEY(seq,criterion));"
                          "CREATE INDEX status_idx ON rows(failed,unknown);"
                          "CREATE INDEX criterion_idx ON violations(criterion,seq);")
-        chunks = deque(ids[offset:offset + limits["batch_size"]] for offset in range(0, len(ids), limits["batch_size"]))
+        chunks = (deque([ids]) if precomputed_report is not None else
+                  deque(ids[offset:offset + limits["batch_size"]]
+                        for offset in range(0, len(ids), limits["batch_size"])))
         while chunks:
             reason = budget()
             if reason:
@@ -96,10 +104,15 @@ def build(state, base, constants, deck, profile, params, reporter):
                 break
             chunk = chunks.popleft()
             try:
-                report = reporter(base, constants, deck, profile, chunk)[0]
+                if precomputed_report is not None:
+                    report = precomputed_report
+                    precomputed_report = None
+                else:
+                    report = reporter(base, constants, deck, profile, chunk)[0]
                 if common._criteria(base) != original or _context(state, deck) != context:
                     raise RuntimeError("quality model or criteria changed between batches")
                 criteria = report.get("criteria_snapshot", report.get("definitions"))
+                common._merge_metric_extrema(metric_extrema, report["rows"])
                 complete = complete and report["complete"]
                 failed, unknown = set(report["failed_entity_ids"]), set(report["unknown_entity_ids"])
                 for row in report["rows"]:
@@ -110,7 +123,8 @@ def build(state, base, constants, deck, profile, params, reporter):
                         db.execute("INSERT INTO violations VALUES (?,?)", (seq, name))
                         violations[name] += 1
                     counts.update(checked_count=1, failed_count=int(bad), unknown_count=int(missing), passed_count=int(not bad and not missing))
-                hashes.append((chunk, report["geometry_sha256"], report["scope_sha256"]))
+                hashes.append((chunk, report["geometry_sha256"], report["scope_sha256"],
+                               report.get("scope_components")))
                 db.commit()
             except Exception as exc:
                 if len(chunk) > 1 and "CheckReport tree exceeds" in str(exc):
@@ -124,7 +138,7 @@ def build(state, base, constants, deck, profile, params, reporter):
                 break
         snapshot_verified = False
         try:
-            for chunk, expected, _decision in hashes:
+            for chunk, expected, _decision, _components in hashes:
                 interrupted = budget()
                 if interrupted:
                     reason, complete = interrupted, False
@@ -142,8 +156,23 @@ def build(state, base, constants, deck, profile, params, reporter):
         complete = complete and snapshot_verified and counts["checked_count"] == len(ids)
         passed = complete and not counts["failed_count"] and not counts["unknown_count"]
         digest = hashlib.sha256()
-        for _chunk, _geometry, decision in hashes:
+        for _chunk, _geometry, decision, _components in hashes:
             digest.update(decision.encode("ascii"))
+        scope_components = None
+        component_snapshots = [item[3] for item in hashes]
+        if (component_snapshots and all(isinstance(item, dict) and item.get("version") == 1
+                                        and isinstance(item.get("components"), dict)
+                                        for item in component_snapshots)):
+            names = set.intersection(*(set(item["components"]) for item in component_snapshots))
+            aggregate = {}
+            for name in sorted(names):
+                values = [item["components"][name] for item in component_snapshots]
+                if len(values) == 1 or (name in {"profile", "criteria", "native_criteria", "effective_criteria", "dependencies"}
+                                        and all(value == values[0] for value in values)):
+                    aggregate[name] = values[0]
+                else:
+                    aggregate[name] = common._digest(values)
+            scope_components = common._versioned_scope_components(aggregate)
         value = {"report_id": report_id, "deck": deck, "entity_type": kind,
                  "profile": {key: item for key, item in profile.items() if key != "quality_criteria"},
                  "analysis_type": profile.get("analysis_type"),
@@ -152,11 +181,14 @@ def build(state, base, constants, deck, profile, params, reporter):
                  "scope_sha256": digest.hexdigest(), "usable_for_mutation": False,
                  "summary": {"status": "passed" if passed else "failed" if complete else "incomplete", **counts},
                  "violation_summary": [{"criterion": name, "failed_count": count} for name, count in sorted(violations.items())],
+                 "metric_extrema": metric_extrema,
                  "criteria_snapshot": criteria, "rows_total": counts["checked_count"],
                  "rows_returned": 0, "rows_truncated": counts["checked_count"] > 0,
                  "rows": [], "ids_paged": True, "page_tool": "ansa_mesh_quality_page",
                  "reason": reason, "error": failure, "batch_count": len(hashes), "batch_size": limits["batch_size"],
                  "elapsed_seconds": time.monotonic() - started, "solver_verified": False}
+        if scope_components is not None:
+            value["scope_components"] = scope_components
         db.execute("INSERT INTO meta VALUES (?)", (json.dumps({"context": context, "report": value}, ensure_ascii=False, allow_nan=False),))
         db.commit()
     return value
@@ -192,15 +224,26 @@ def page(state, deck, params):
             raise ValueError("quality report belongs to a different model context")
         total = db.execute("SELECT COUNT(*) FROM rows r" + where, values).fetchone()[0]
         rows, used = [], 0
-        for body, in db.execute("SELECT r.body FROM rows r" + where + " ORDER BY r.seq LIMIT ? OFFSET ?", [*values, limit, offset]):
+        page_ids, failed_ids, unknown_ids = [], [], []
+        for eid, failed, unknown, body in db.execute(
+                "SELECT r.id,r.failed,r.unknown,r.body FROM rows r" + where
+                + " ORDER BY r.seq LIMIT ? OFFSET ?", [*values, limit, offset]):
             size = len(body.encode("utf-8"))
             if rows and used + size > 128 * 1024:
                 break
             if size > 128 * 1024:
                 raise ValueError("one quality detail exceeds the page budget")
             rows.append(json.loads(body))
+            page_ids.append(eid)
+            if failed:
+                failed_ids.append(eid)
+            if unknown:
+                unknown_ids.append(eid)
             used += size
     return {"report_id": report_id, "read_only": True, "historical_snapshot": True,
+            "usable_for_mutation": False,
             "source_complete": meta["report"]["complete"], "scope_sha256": meta["report"]["scope_sha256"],
+            "scope_components": meta["report"].get("scope_components"),
             "status": status, "criterion": criterion, "total": total, "offset": offset,
+            "entity_ids": page_ids, "failed_entity_ids": failed_ids, "unknown_entity_ids": unknown_ids,
             "rows": rows, "next_offset": offset + len(rows) if offset + len(rows) < total else None}

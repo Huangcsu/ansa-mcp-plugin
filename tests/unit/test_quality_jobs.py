@@ -27,7 +27,11 @@ class QualityJobsTests(unittest.TestCase):
                  "metrics": {"ASPECT": 6.0 if eid % 2 else 1.0}, "passed": not eid % 2} for eid in ids]
         return {"rows": rows, "entity_ids": ids, "failed_entity_ids": [eid for eid in ids if eid % 2],
                 "unknown_entity_ids": [], "complete": True, "geometry_sha256": str(ids),
-                "scope_sha256": workflow._digest(ids)}, None, None, None
+                "scope_sha256": workflow._digest(ids),
+                "scope_components": workflow._versioned_scope_components({
+                    "geometry": workflow._digest(ids), "profile": "p" * 64,
+                    "criteria": "c" * 64, "measurement": workflow._digest(rows),
+                })}, None, None, None
 
     def build(self, reporter=None):
         with patch.object(workflow, "_criteria", return_value="criteria"), \
@@ -38,18 +42,50 @@ class QualityJobsTests(unittest.TestCase):
     def test_more_than_2000_have_complete_counts_and_lossless_filtered_pages(self):
         value = self.build()
         self.assertTrue(value["complete"])
+        self.assertFalse(value["usable_for_mutation"])
         self.assertEqual(value["summary"]["checked_count"], 2501)
         self.assertEqual(value["summary"]["failed_count"], 1251)
+        self.assertEqual(value["scope_components"]["version"], 1)
+        self.assertEqual(value["metric_extrema"]["ASPECT"], {
+            "count": 2501, "minimum": 1.0, "minimum_entity_id": 2,
+            "maximum": 6.0, "maximum_entity_id": 1})
         self.assertEqual([len(x) for x in self.calls], [1000, 1000, 501])
-        ids, offset = [], 0
+        ids, failed_ids, offset = [], [], 0
         while offset is not None:
             page = quality_reports.page(self.state, 1, {"report_id": value["report_id"], "criterion": "ASPECT", "offset": offset, "limit": 200})
+            self.assertFalse(page["usable_for_mutation"])
+            self.assertEqual(page["scope_components"], value["scope_components"])
             ids.extend(row["id"] for row in page["rows"])
+            failed_ids.extend(page["failed_entity_ids"])
             offset = page["next_offset"]
         self.assertEqual(ids, list(range(1, 2502, 2)))
+        self.assertEqual(failed_ids, list(range(1, 2502, 2)))
         self.state.model_epoch += 1
         with self.assertRaisesRegex(ValueError, "different model"):
             quality_reports.page(self.state, 1, {"report_id": value["report_id"]})
+
+    def test_precomputed_explicit_report_is_persisted_without_remeasurement(self):
+        ids = [1, 2, 3]
+        report = self.reporter(self.base, self.constants, 1, self.profile, ids)[0]
+        self.calls.clear()
+
+        def unexpected_measurement(*_args):
+            raise AssertionError("precomputed report must not be measured again")
+
+        with patch.object(workflow, "_criteria", return_value="criteria"), \
+             patch.object(workflow, "_scope",
+                          side_effect=lambda b, c, d, f, chunk: (None, None, None, str(chunk))):
+            value = quality_reports.build(
+                self.state, self.base, self.constants, 1, self.profile,
+                {"entity_ids": ids, "batch_size": 1}, unexpected_measurement,
+                precomputed_report=report,
+            )
+        self.assertTrue(value["complete"])
+        self.assertEqual(value["summary"]["checked_count"], 3)
+        self.assertEqual(self.calls, [])
+        page = quality_reports.page(self.state, 1, {"report_id": value["report_id"], "limit": 10})
+        self.assertEqual(page["failed_entity_ids"], [1, 3])
+        self.assertIsNone(page["next_offset"])
 
     def test_failed_batch_is_incomplete_and_reports_actual_coverage(self):
         def fail(base, constants, deck, profile, ids):

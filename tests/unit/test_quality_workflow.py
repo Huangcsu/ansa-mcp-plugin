@@ -327,6 +327,11 @@ class QualityWorkflowBusinessTests(unittest.TestCase):
         after = self.run_report(base, profile)
         self.assertEqual(before["geometry_sha256"], after["geometry_sha256"])
         self.assertNotEqual(before["scope_sha256"], after["scope_sha256"])
+        self.assertEqual(before["scope_components"]["version"], 1)
+        self.assertEqual(set(before["scope_components"]["components"]),
+                         {"geometry", "profile", "criteria", "measurement"})
+        self.assertEqual(before["scope_components"]["components"]["measurement"],
+                         before["measurement_sha256"])
         self.assertTrue(before["passed"])
         self.assertFalse(after["passed"])
 
@@ -356,6 +361,26 @@ class QualityWorkflowBusinessTests(unittest.TestCase):
                     self.assertEqual(value["rows_returned"], len(value["rows"]))
                     self.assertLess(value["rows_returned"], 2000)
 
+    def test_oversized_explicit_report_uses_persistent_pagination(self):
+        self.ansa.base = FakeBase()
+        oversized = {"rows": [{"id": 11, "detail": "x" * 512}],
+                     "failed_entity_ids": [11], "unknown_entity_ids": [],
+                     "complete": True, "passed": False, "scope_sha256": "s" * 64}
+        paged = {"ids_paged": True, "usable_for_mutation": False, "report_id": "r"}
+        with patch.object(quality_workflow, "_MAX_RESULT_BYTES", 64), \
+             patch.object(quality_workflow, "_report",
+                          return_value=(oversized, [FakeEntity(11)], {}, {})), \
+             patch("ansa_mcp_bridge.operations.quality_reports.build", return_value=paged) as build:
+            result = quality_workflow.execute(
+                self.state,
+                "quality_report",
+                {"deck": 1, "entity_ids": [11],
+                 "profile": self.report_profile("shell", [{"name": "ASPECT", "max": 5.0}])},
+            )
+        self.assertIs(result, paged)
+        self.assertEqual(build.call_args.args[5]["entity_ids"], [11])
+        self.assertIs(build.call_args.kwargs["precomputed_report"], oversized)
+
     def test_locate_rejects_stale_scope_before_display(self):
         base = FakeBase()
         self.ansa.base = base
@@ -363,14 +388,23 @@ class QualityWorkflowBusinessTests(unittest.TestCase):
         self.ansa.guitk = types.SimpleNamespace(
             BCApplicationIsGuiMode=lambda: guitk_calls.append(True) or True
         )
+        actual_components = quality_workflow._versioned_scope_components({
+            "geometry": "g" * 64, "profile": "p" * 64,
+            "criteria": "c" * 64, "measurement": "m" * 64,
+        })
+        expected_components = quality_workflow._versioned_scope_components({
+            "geometry": "x" * 64, "profile": "p" * 64,
+            "criteria": "c" * 64, "measurement": "m" * 64,
+        })
         before = {"scope_sha256": "b" * 64, "entity_type": "SHELL",
-                  "failed_entity_ids": [11], "geometry_sha256": "g" * 64}
+                  "failed_entity_ids": [11], "geometry_sha256": "g" * 64,
+                  "scope_components": actual_components}
         with patch.object(
             quality_workflow,
             "_report",
             return_value=(before, [FakeEntity(11)], {101: FakeNode(101)}, {}),
         ):
-            with self.assertRaisesRegex(ValueError, "scope changed"):
+            with self.assertRaisesRegex(ValueError, "scope changed") as raised:
                 quality_workflow.execute(
                     self.state,
                     "quality_locate",
@@ -381,11 +415,47 @@ class QualityWorkflowBusinessTests(unittest.TestCase):
                             "shell", [{"name": "ASPECT", "max": 5.0}]
                         ),
                         "expected_scope_sha256": "a" * 64,
+                        "expected_scope_components": expected_components,
                     },
                 )
+        diagnostics = raised.exception.diagnostics
+        self.assertEqual(diagnostics["expected"]["scope_sha256"], "a" * 64)
+        self.assertEqual(diagnostics["actual"]["scope_sha256"], "b" * 64)
+        self.assertEqual(diagnostics["changed_components"], ["geometry"])
         self.assertEqual(guitk_calls, [])
         self.assertEqual(base.or_calls, 0)
         self.assertEqual(base.redraw_calls, 0)
+
+    def test_expected_scope_components_do_not_change_legacy_sha_admission(self):
+        self.ansa.base = FakeBase()
+        before = {
+            "scope_sha256": "s" * 64,
+            "geometry_sha256": "g" * 64,
+            "entity_type": "SHELL",
+            "failed_entity_ids": [],
+            "scope_components": quality_workflow._versioned_scope_components({
+                "geometry": "g" * 64, "profile": "p" * 64,
+                "criteria": "c" * 64, "measurement": "m" * 64,
+            }),
+        }
+        stale_components = quality_workflow._versioned_scope_components({
+            "geometry": "x" * 64, "profile": "p" * 64,
+            "criteria": "c" * 64, "measurement": "m" * 64,
+        })
+        with patch.object(quality_workflow, "_report",
+                          return_value=(before, [], {}, {})):
+            result = quality_workflow.execute(
+                self.state,
+                "quality_locate",
+                {
+                    "deck": 1,
+                    "entity_ids": [11],
+                    "profile": self.report_profile("shell", [{"name": "ASPECT", "max": 5.0}]),
+                    "expected_scope_sha256": "s" * 64,
+                    "expected_scope_components": stale_components,
+                },
+            )
+        self.assertEqual(result["reason"], "no_matching_failures")
 
     def test_locate_requires_gui_mode_before_isolation(self):
         from ansa_mcp_bridge.operations.inspection import CapabilityUnavailableError
@@ -726,6 +796,8 @@ class QualityWorkflowBusinessTests(unittest.TestCase):
         self.assertEqual(result["method"], "smooth")
         self.assertIsNone(result["fix_method"])
         self.assertEqual(result["api"], "ansa.mesh.SolidSmooth")
+        self.assertTrue(result["criteria_restored"])
+        self.assertFalse(result["criteria_synchronized"])
         self.assertEqual(result["changed_node_ids"], [101])
         self.assertEqual(validity.call_count, 2)
         self.assertEqual(result["validity_before"], validity_value)
@@ -734,6 +806,31 @@ class QualityWorkflowBusinessTests(unittest.TestCase):
             self.assertEqual(call.args[1], entities)
             self.assertEqual(call.args[2], "solid")
         self.assertEqual(calls, [(ids, True)])
+
+    def test_smooth_failure_reports_actual_criteria_state_after_coordinate_rollback(self):
+        for unchanged in (True, False):
+            with self.subTest(criteria_unchanged=unchanged):
+                base = FakeBase()
+                self.ansa.base = base
+                self.ansa.mesh = types.SimpleNamespace(SolidSmooth=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("native failure")))
+                node = FakeNode(101)
+                entities = [FakeEntity(11, "SOLID")]
+                before = self.repair_before()
+                before["entity_type"] = "SOLID"
+                profile = self.report_profile("solid", [{"name": "ASPECT", "max": 5.}])
+                with patch.object(quality_workflow, "_criteria", side_effect=["native criteria"]*3 + [
+                                  "native criteria" if unchanged else "changed criteria"]), \
+                     patch.object(quality_workflow, "_scope", return_value=(entities, {101: node}, {}, "g"*64)), \
+                     patch.object(quality_workflow, "_fe_snapshot", side_effect=lambda *_: self.full_snapshot(node, "SOLID")), \
+                     patch.object(quality_workflow, "_validity", return_value=[{"id": 11, "measure": 1., "jacobian": .5}]), \
+                     patch.object(quality_workflow, "_report", return_value=(before, entities, {101: node}, {})), \
+                     patch("ansa_mcp_bridge.operations._model_save", return_value={"path": r"F:\backup.ansa", "saved": True}):
+                    result = quality_workflow._repair(self.state, base, self.ansa.constants, 1,
+                        self.repair_params("s"*64, method="smooth"), profile, [11], before, entities, {101: node})
+                self.assertFalse(result["ok"])
+                self.assertTrue(result["coordinates_rolled_back"])
+                self.assertEqual(result["criteria_restored"], unchanged)
+                self.assertEqual(result["recovery_required"], not unchanged)
 
     def test_shell_smooth_restores_scoped_fixed_node_and_keeps_movable_move(self):
         self._assert_scoped_fixed_nodes_are_restored("smooth")
@@ -996,6 +1093,34 @@ class QualityWorkflowSchemaTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ToolError):
             await server.call_tool("ansa_mesh_quality_repair", args)
         self.assertEqual(submitted, [])
+
+    async def test_scope_components_are_optional_and_forwarded_for_diagnostics(self):
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        submitted = []
+        server = self._server(submitted)
+        args = self._args()
+        components = {
+            "version": 1,
+            "components": {
+                "geometry": "a" * 64,
+                "profile": "b" * 64,
+                "criteria": "c" * 64,
+                "measurement": "d" * 64,
+                "dependencies": "e" * 64,
+            },
+            "sha256": "f" * 64,
+        }
+        args["expected_scope_components"] = components
+        await server.call_tool("ansa_mesh_quality_repair", args)
+        self.assertEqual(submitted[-1][1]["expected_scope_components"], components)
+
+        invalid = copy.deepcopy(args)
+        invalid["operation_id"] = "quality-schema-bad-components"
+        invalid["expected_scope_components"]["version"] = 2
+        with self.assertRaises(ToolError):
+            await server.call_tool("ansa_mesh_quality_repair", invalid)
+        self.assertEqual(len(submitted), 1)
 
 
 if __name__ == "__main__":

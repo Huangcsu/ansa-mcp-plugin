@@ -24,6 +24,25 @@ Deck = Annotated[int, Field(strict=True, ge=1)]
 EntityId = Annotated[int, Field(strict=True, ge=1)]
 TTL = Annotated[int, Field(strict=True, ge=0, le=86400)]
 ScopeSha256 = Annotated[str, Field(strict=True, pattern=r"^[0-9a-fA-F]{64}$")]
+ScopeComponent = Literal["geometry", "profile", "criteria", "native_criteria",
+                         "effective_criteria", "measurement", "dependencies"]
+
+
+class ScopeComponents(BaseModel):
+    """Versioned report hashes supplied only to explain a stale-scope rejection."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    version: Literal[1]
+    components: dict[ScopeComponent, ScopeSha256]
+    sha256: ScopeSha256
+
+    @model_validator(mode="after")
+    def _require_core_components(self):
+        required = {"geometry", "profile", "criteria", "measurement"}
+        if not required.issubset(self.components):
+            raise ValueError("scope components must include geometry, profile, criteria and measurement")
+        return self
 
 CriterionName = Literal[
     "ASPECT",
@@ -263,7 +282,8 @@ def register(server, submit):
         entity_ids 与 scope 二选一。scope=all/visible、paged=true 或超过2000个单元时，
         内部按 batch_size 分批，返回 report_id、覆盖范围与摘要；使用
         ansa_mesh_quality_page 分页读取明细。时间或存储预算耗尽返回 complete=false。
-        大范围报告不能直接用作修改许可；修复前须对最多200个目标重新取得报告。
+        超过回包字节预算的显式报告也自动转为持久分页；分页历史报告不能直接用作修改许可。
+        修复前须对最多200个目标重新取得报告。
         """
         if (entity_ids is None) == (scope is None):
             raise ValueError("provide exactly one of entity_ids or scope")
@@ -314,6 +334,7 @@ def register(server, submit):
         expected_scope_sha256: ScopeSha256,
         ttl_seconds: TTL = 300,
         criterion: Annotated[str, Field(strict=True, min_length=1, max_length=128)] | None = None,
+        expected_scope_components: ScopeComponents | None = None,
     ) -> Annotated[CallToolResult, ToolResult]:
         """按质量报告定位失败实体；这是显示写入，不修改模型或质量阈值。
 
@@ -332,6 +353,8 @@ def register(server, submit):
                 "entity_ids": entity_ids,
                 "profile": profile.model_dump(exclude_none=True),
                 "expected_scope_sha256": expected_scope_sha256,
+                **({"expected_scope_components": expected_scope_components.model_dump()}
+                   if expected_scope_components is not None else {}),
                 **({"criterion": criterion} if criterion is not None else {}),
             },
             operation_id,
@@ -358,10 +381,12 @@ def register(server, submit):
         ttl_seconds: TTL = 300,
         max_iterations: Annotated[int, Field(strict=True, ge=1, le=10)] = 1,
         maximum_total_displacement: PositiveFloat | None = None,
+        expected_scope_components: ScopeComponents | None = None,
     ) -> Annotated[CallToolResult, ToolResult]:
         """对最多 200 个显式实体执行受控质量修复，并先创建独立模型备份。
 
-        expected_scope_sha256 必须与最新质量报告一致。backup_path 是必须由 bridge
+        expected_scope_sha256 必须与最新质量报告一致。expected_scope_components 仅用于
+        SHA 不匹配时的差异诊断，不改变原 scope_sha256 放行条件。backup_path 是必须由 bridge
         核验的绝对路径；movable_node_ids 限定可移动节点，省略则排除范围外FE共用节点后
         自动推导。maximum_displacement 是
         单次允许的最大节点位移。method 显式指定时可选 smooth 或 fix_quality；省略时
@@ -380,6 +405,8 @@ def register(server, submit):
             "entity_ids": entity_ids,
             "profile": profile.model_dump(exclude_none=True),
             "expected_scope_sha256": expected_scope_sha256,
+            **({"expected_scope_components": expected_scope_components.model_dump()}
+               if expected_scope_components is not None else {}),
             "backup_path": backup_path,
             "maximum_displacement": maximum_displacement,
             "method": method or ("fix_quality" if isinstance(profile, NativeQualityProfile) else "smooth"),

@@ -354,6 +354,15 @@ def report(base, constants, deck, profile, ids):
         raise RuntimeError("mesh, materials/properties or global criteria changed during native quality report")
     profile_summary = {k: v for k, v in profile.items() if k != "quality_criteria"}
     decision_hash = common._digest({"reports": tree, "timestep": timestep_values, "dependencies": dependencies})
+    scope_components = common._versioned_scope_components({
+        "geometry": geometry_hash,
+        "profile": profile["profile_sha256"],
+        "criteria": common._digest({"global": common._digest(original), "effective": criteria["sha256"]}),
+        "native_criteria": common._digest(original),
+        "effective_criteria": criteria["sha256"],
+        "measurement": decision_hash,
+        "dependencies": dependencies,
+    })
     result = {"deck": deck, "engine": "ANSA_MeshQuality", "template": get_template(profile["template"]),
               "profile": profile_summary, "analysis_type": profile["analysis_type"], "entity_type": primary,
               "entity_ids": ids, "rows": rows, "failed_entity_ids": failed_ids, "unknown_entity_ids": unknown_ids,
@@ -361,6 +370,7 @@ def report(base, constants, deck, profile, ids):
               "scope_sha256": common._digest({"geometry": geometry_hash, "profile": profile["profile_sha256"],
                                                "global": common._digest(original), "effective": criteria["sha256"],
                                                "decision": decision_hash}),
+              "scope_components": scope_components,
               "geometry_sha256": geometry_hash, "measurement_sha256": decision_hash,
               "dependencies_sha256": dependencies, "native_criteria_sha256": common._digest(original),
               "criteria_snapshot": criteria, "native_report_count": len(raw), "issue_count": issue_count,

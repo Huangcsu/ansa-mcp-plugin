@@ -29,6 +29,72 @@ def _digest(value):
     return hashlib.sha256(_encoded(value)).hexdigest()
 
 
+def _versioned_scope_components(components):
+    body = {"version": 1, "components": dict(sorted(components.items()))}
+    return {**body, "sha256": _digest(body)}
+
+
+def _scope_mismatch_error(expected_scope_sha256, expected_scope_components, actual):
+    if hasattr(expected_scope_components, "model_dump"):
+        expected_scope_components = expected_scope_components.model_dump()
+    actual_scope_components = actual.get("scope_components")
+    expected = {"scope_sha256": expected_scope_sha256,
+                "scope_components": expected_scope_components}
+    observed = {"scope_sha256": actual.get("scope_sha256"),
+                "scope_components": actual_scope_components}
+
+    changed = []
+    if expected_scope_components is None:
+        changed.append("scope_sha256")
+    elif not isinstance(expected_scope_components, dict) or not isinstance(actual_scope_components, dict):
+        changed.append("scope_components")
+    else:
+        if expected_scope_components.get("version") != actual_scope_components.get("version"):
+            changed.append("version")
+        expected_parts = expected_scope_components.get("components")
+        actual_parts = actual_scope_components.get("components")
+        if not isinstance(expected_parts, dict) or not isinstance(actual_parts, dict):
+            changed.append("components")
+        else:
+            changed.extend(name for name in sorted(set(expected_parts) | set(actual_parts))
+                           if expected_parts.get(name) != actual_parts.get(name))
+        if (not changed and expected_scope_components.get("sha256")
+                != actual_scope_components.get("sha256")):
+            changed.append("scope_components.sha256")
+        if not changed and expected_scope_sha256 != actual.get("scope_sha256"):
+            changed.append("scope_sha256")
+
+    error = ValueError("quality scope changed; obtain a fresh quality report")
+    expected_parts = (expected_scope_components or {}).get("components", {}) if isinstance(expected_scope_components, dict) else {}
+    actual_parts = (actual_scope_components or {}).get("components", {}) if isinstance(actual_scope_components, dict) else {}
+    error.diagnostics = {"expected": expected, "actual": observed,
+                         "changed_components": changed,
+                         "comparison_available": isinstance(expected_scope_components, dict)
+                         and isinstance(actual_scope_components, dict)
+                         and expected_scope_components.get("version") == actual_scope_components.get("version"),
+                         "missing_expected_components": sorted(
+                             set(actual_parts if isinstance(actual_parts, dict) else {})
+                             - set(expected_parts if isinstance(expected_parts, dict) else {}))}
+    return error
+
+
+def _merge_metric_extrema(extrema, rows):
+    """Retain numeric extremes and their entity IDs across immutable batches."""
+    for row in rows:
+        for name, value in row.get("metrics", {}).items():
+            if type(value) not in (int, float) or not math.isfinite(value):
+                continue
+            item = extrema.setdefault(name, {"count": 0, "minimum": value,
+                       "minimum_entity_id": row["id"], "maximum": value,
+                       "maximum_entity_id": row["id"]})
+            item["count"] += 1
+            if (value, row["id"]) < (item["minimum"], item["minimum_entity_id"]):
+                item.update(minimum=value, minimum_entity_id=row["id"])
+            if value > item["maximum"] or (value == item["maximum"] and row["id"] < item["maximum_entity_id"]):
+                item.update(maximum=value, maximum_entity_id=row["id"])
+    return extrema
+
+
 def _report_summary(report):
     """Summarize full decisions before detail rows are trimmed for transport."""
     groups = {}
@@ -48,6 +114,7 @@ def _report_summary(report):
         {"criterion": name, "failed_count": len(entity_ids)}
         for name, entity_ids in sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
     ]
+    report["metric_extrema"] = _merge_metric_extrema({}, report["rows"])
 
 
 def _bounded_result(result):
@@ -244,10 +311,17 @@ def _report(base, constants, deck, profile, ids):
                                 "definitions": definitions})
     scope_hash = _digest({"geometry": fingerprint, "profile": profile["profile_sha256"],
                           "native_criteria": criteria_hash, "measurement": measurement_hash})
+    scope_components = _versioned_scope_components({
+        "geometry": fingerprint,
+        "profile": profile["profile_sha256"],
+        "criteria": criteria_hash,
+        "measurement": measurement_hash,
+    })
     decision.update({"deck": deck, "entity_type": _element_kind(constants, deck, profile["element_family"]),
                      "entity_ids": ids, "scope_sha256": scope_hash, "geometry_sha256": fingerprint, "profile": profile,
                      "definitions": definitions, "native_criteria_sha256": criteria_hash,
                      "measurement_sha256": measurement_hash,
+                     "scope_components": scope_components,
                      "read_only": True, "scope": "explicit", "solver_verified": False,
                      "crash_time_step_is_estimate": profile["analysis_type"] == "explicit_crash"})
     return decision, entities, nodes, snapshot
@@ -510,6 +584,9 @@ def _repair(state, base, constants, deck, params, profile, ids, before, entities
         from .native_quality import _criteria_matches
         if not _criteria_matches(native_before, _criteria(base)):
             raise RuntimeError("native repair changed global quality criteria")
+        # Smooth does not load temporary criteria. Its independently verified
+        # unchanged state satisfies the same restoration contract as a fix.
+        result["criteria_restored"] = True
         if not after["complete"] or not set(after["failed_entity_ids"]) <= set(before["failed_entity_ids"]):
             raise RuntimeError("repair introduced unknown metrics or new failing elements")
         original_violations = {r["id"]: set(r["violations"]) for r in before["rows"]}
@@ -540,9 +617,10 @@ def _repair(state, base, constants, deck, params, profile, ids, before, entities
             current = _fe_snapshot(base, constants, deck)
             result["coordinates_rolled_back"] = _restore_positions(base, constants, deck, full_before, current)
             from .native_quality import _criteria_matches
+            result["criteria_restored"] = _criteria_matches(native_before, _criteria(base))
             result["recovery_required"] = (not result["coordinates_rolled_back"]
                                            or result.get("options_restored") is False
-                                           or not _criteria_matches(native_before, _criteria(base)))
+                                           or not result["criteria_restored"])
             if native_template:
                 from .native_quality import report as recovery_report
             else:
@@ -659,8 +737,10 @@ def execute(state, tool, params):
                 "quality_repair": ("expected_scope_sha256", "backup_path", "maximum_displacement")}[tool]
     required = ("deck", "profile", *optional) + (() if tool == "quality_report" else ("entity_ids",))
     extra = (("method", "movable_node_ids", "max_iterations", "maximum_total_displacement") if tool == "quality_repair"
-             else ("criterion",) if tool == "quality_locate" else
+             else ("criterion", "expected_scope_components") if tool == "quality_locate" else
              ("entity_ids", "scope", "batch_size", "max_seconds", "max_report_megabytes", "paged"))
+    if tool == "quality_repair":
+        extra += ("expected_scope_components",)
     inspection._params(params, required, extra)
     raw_profile = params["profile"]
     if type(raw_profile) is dict and "template" in raw_profile:
@@ -684,9 +764,16 @@ def execute(state, tool, params):
             raise ValueError("LS-DYNA quality writes require an explicit_crash native template")
     before, entities, nodes, snapshot = quality_report(base, constants, deck, profile, ids)
     if tool == "quality_report":
+        _report_summary(before)
+        before.update(rows_total=len(before["rows"]), rows_returned=len(before["rows"]), rows_truncated=False)
+        if len(_encoded(before)) > _MAX_RESULT_BYTES:
+            from .quality_reports import build
+            return build(state, base, constants, deck, profile, params, quality_report,
+                         precomputed_report=before)
         return _bounded_result(before)
     if params["expected_scope_sha256"] != before["scope_sha256"]:
-        raise ValueError("quality scope changed; obtain a fresh quality report")
+        raise _scope_mismatch_error(params["expected_scope_sha256"],
+                                    params.get("expected_scope_components"), before)
     if tool == "quality_repair":
         if deck == getattr(constants, "LSDYNA", None):
             expected_nodes = 4 if profile["element_family"] == "shell" else 8
