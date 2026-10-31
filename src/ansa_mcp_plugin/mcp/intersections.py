@@ -1,6 +1,6 @@
 """Read-only, explicitly scoped mesh intersection tools."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from mcp.types import CallToolResult
 from pydantic import Field
@@ -25,11 +25,19 @@ def register(server, submit):
         first_ids: ShellIds,
         second_ids: ShellIds,
         ttl_seconds: TTL = 300,
+        entity_type: Literal["SHELL", "SOLID"] = "SHELL",
     ) -> Annotated[CallToolResult, ToolResult]:
-        """只读检查两组显式 NASTRAN SHELL ID 的交叉相交；每组 1–200 个 CQUAD4/CTRIA3。"""
+        """只读检查两组显式 NASTRAN 单元的交叉相交；每组 1–200 个同类 SHELL 或 SOLID。
+
+        SHELL 支持 CQUAD4/CTRIA3，SOLID 支持 CHEXA8/CPENTA6。
+        只检查两组之间，不检查每组内部；native_count 不是已核实的相交对数。
+        """
+        params = {"deck": deck, "first_ids": first_ids, "second_ids": second_ids}
+        if entity_type != "SHELL":
+            params["entity_type"] = entity_type
         return submit(
             "mesh_intersections",
-            {"deck": deck, "first_ids": first_ids, "second_ids": second_ids},
+            params,
             operation_id,
             expected_target,
             expected_model,

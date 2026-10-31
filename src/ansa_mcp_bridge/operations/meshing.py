@@ -582,6 +582,10 @@ def execute(state, tool, params):
     state.assert_main()
     from ansa import base, constants, mesh
 
+    if tool == "mesh_surface" and params.get("method") == "mapped_existing_seeds":
+        from .structured_meshing import _with_operation_ledger
+        deck = catalog._deck(base, params)
+        return _with_operation_ledger(state, deck, tool, {**params, "deck": deck})
     required = {"mesh_faces": ("face_ids",), "mesh_surface": ("faces", "target_length"), "mesh_delete": ("entities",)}
     if tool not in required:
         raise ValueError(f"unsupported meshing operation: {tool!r}")

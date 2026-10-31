@@ -25,7 +25,17 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 
 源码默认使用共享常驻后端：多个聊天通过各自的 stdio 前端复用同一连接与任务队列，关闭聊天不会停止其他会话的任务。后端重启后仍需在 ANSA 面板重新绑定；启动诊断与升级停止方式见[安装说明](docs/installation.md)。
 
-**当前版本提供 69 个 MCP 工具，以前处理任务的自动化为核心。** 支持几何查询与筛选、表面与体网格生成、网格质量检查以及实体与属性管理；结合脚本扩展、任务追踪和结果回读，让 AI 能够串联这些操作，减少重复性前处理工作，并保留可核对的执行结果。
+**当前工作源码注册 91 个 MCP 工具，以前处理任务自动化为核心。** 22 个结构化网格工具覆盖显式块规划、NASTRAN 网格审计、受控分割与直线扫掠、有限六面 CAD Map、Map Block 受控准备、显式caps设置、填充及状态回读、有限孔环源面准备、只读扫掠候选分类、几何特征读取、CONS 辅助曲线转换、尺寸/曲率分段、原始 CONS 分段读取与受控设置、多块合批准备、来源记录和证据分页。既有表面网格入口另支持保留整数 CONS 种子的原生四边映射模式。受限独立真机验收及未覆盖范围见[验收记录](docs/acceptance.md)，发行集成仍待完成；工具数量不代表全部场景已验收。
+
+矩形多块路线支持一次原生MapBlock准备、保留已完成块的增量/合批填充、共享接口及完整外皮核验。外部Python客户端 `MapBlockJobClient` 可逐组保存检查点，并在回执丢失后查询原任务继续；当前范围与使用示例见[复杂实体网格流程](docs/reference/complex-solid-meshing.md#多块路线的当前落地)。有限孔环支持原生MapBlock源面→Freeze→Extrude，以及已有四块MapBlock直接填充；两条路线的适用范围与独立质量结果见[孔环路线](docs/reference/complex-solid-meshing.md#有限孔环直扫)。任意工业CAD自动分解仍未开放。
+
+中心单孔矩形板的[参数化原生流程](docs/reference/plate-hole-workflow.md)固化孔周环带＋外围矩形分区、整数边分段、四边形面重划、Freeze、厚度caps及六面体填充。`plate_hole_script`通过现有MCP脚本入口调用，提供[示例参数](examples/meshing/plate-hole-o-grid.json)；不是新增工具名，也不把矩形板模板套用于任意工业局部域。
+
+接口审计另支持可选 CAD FACE 成员模式：从原生宏取得网格归属后检查全部关联节点，保留未知归属和未覆盖边界。已完成隔离夹具的 0.1 节点偏移反例及 S25 局部孔壁只读检查；节点检查通过不代表连续 CAD 覆盖已证明，范围见[验收记录](docs/acceptance.md)。
+
+相交工具新增 `entity_type="SOLID"`，支持两组各最多 200 个 NASTRAN CHEXA8/CPENTA6。独立试件已验证包容、共享节点和接触边界；S25 未解决候选经 60 批原生检查，检查前后全量 FE 指纹一致。该能力仍属于当前工作源码，部署状态见[验收记录](docs/acceptance.md)。
+
+CAD 分割验收另有[参数化离线入口](docs/reference/structured-meshing.md#cad-分割完整性的离线复用)：用完整原始面清单、分片对应关系和文件哈希检查漏片、额外区域与重复区域。已验证 S25 全部 32 个原始面及独立带孔平面反例；该入口尚未注册为 MCP 工具，不会自动推导分块方案。
 
 > **预览版本**：当前已验收环境为 Windows 11、ANSA 2026.1.0 GUI、64 位 CPython 3.12。当前为 `0.1.3` 预览版源码，尚未发布公开安装包；下方提供源码开发入口。版本变更见[更新记录](CHANGELOG.md)。
 
@@ -35,8 +45,9 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 
 | 前处理环节 | 可以自动化完成的任务 |
 | --- | --- |
-| **几何查询与准备** | 统计几何信息，按面积、位置和方向筛选目标面，预览候选与操作范围，为后续网格任务准备输入 |
+| **几何查询与准备** | 首先检查多镜面、旋转/周期及轴对称特征，确认后优先选择半模型、1/4等最小代表域或扇区，完成后镜像或旋转复制；统计几何信息，按面积、位置和方向筛选目标面，预览候选与操作范围，为后续网格任务准备输入 |
 | **网格划分与编辑** | 生成三角形、四边形表面网格，执行 TETRA RAPID 体网格与映射六面体网格划分；支持拉伸、独立镜像、节点合并及选定网格释放 |
+| **结构化网格规划与审计** | 对调用方显式提供的 NASTRAN 块、接口和扫掠源面进行受限规划、拓扑/几何审计及可追踪的受控操作；不承诺任意复杂体自动分块 |
 | **网格质量与模型检查** | 检查几何边界、网格质量、相交、穿透与刚性依赖，定位问题单元和关联实体，回读检查报告 |
 | **模型组织与文件管理** | 查询与修改实体和属性，创建 Part、维护 SET 成员，读取模型摘要及 Include 信息，完成模型保存、重开与导入导出 |
 | **脚本扩展与 API 查询** | 预检并执行自定义 Python 脚本，扩展前处理操作；查询本机 ANSA API 帮助，缺失时回退运行时说明 |
@@ -49,6 +60,12 @@ ANSA MCP Plugin 是面向 ANSA 的本地 [Model Context Protocol](https://modelc
 Quality Inspector 对应工作流支持原生质量数值明细、Fix Quality 参数恢复、自动候选节点和累计位移受限的多轮修复。检查总单元数不设固定2000上限，支持整体范围分批检查及分页详情；修复范围和资源预算仍明确受控。当前提供源码预览版，尚未发布配套安装包。
 
 当前版本已开放 LS-DYNA 原生显式模板的质量检查、按准则定位及 QUAD4／HEXA8 受控修复；其他 LS-DYNA 写操作继续关闭。实际支持条件及验证范围见[网格质量说明](docs/reference/mesh-quality.md)与[验收记录](docs/acceptance.md)。
+
+结构化网格契约限定 NASTRAN 的线性 CQUAD4／CTRIA3 源面和 CHEXA8／CPENTA6 结果；分块计划来自调用方显式输入。`ansa_geometry_features` 分开检查原生 CONS 闭环与解析 CURVE；有界 IGES 支持 100 圆弧、110 直线及严格单段线性多项式 112，种子建议先与原生长度交叉核验。`ansa_geometry_boundary_prepare` 经备份逐条转换最多 32 CONS，并验证新增 CURVE 与指定空辅助 Part 的归属；转换可能产生近似样条，不证明原始边界解析等价，不自动生成 CONS 圆弧种子。初版限 NASTRAN 毫米、已有 Part 及已保存数据库；失败不隐式保存、重开或重试。完整契约见[结构化网格说明](docs/reference/structured-meshing.md)；[复杂实体网格复用流程](docs/reference/complex-solid-meshing.md)说明共享边分段、悬挂节点检查和兼容块合批。正式发行包集成仍待完成。
+
+开发遵循[原生能力优先准则](docs/development.md#原生能力优先)：先查 ANSA 自带功能，再决定是否自研。CONS 转换复用原生 `ConsToCurves`，另用原生投影记录九点转换偏差；采样结果不作为连续 CAD 等价证明。
+
+`ansa_mesh_seed_read` 与 `ansa_mesh_seed_apply` 将显式整数分段直接应用到原始 CONS，复用原生 `NumberPerimeters`，无需先转辅助曲线。只读查询避免实例化边界 GRID；写入经备份后核验真实点数、原生投影、CAD 导出指纹和原有节点保护。当前限定首次分段、未网格宏及毫米 NASTRAN 模型，详见[分段契约](docs/reference/structured-meshing.md#原生-cons-分段读取与写入)。
 
 各项功能的 deck、网格类型、几何形状、实体范围与执行前置条件见[工具参考](docs/tools.md)及其专项契约。
 
@@ -194,7 +211,7 @@ py -3.12 -m venv .venv
 
 满足以下条件后，即可开始使用：
 
-- **客户端已加载工具**：当前版本可发现 69 个工具，至少应包含 `ansa_connection_status` 和 `ansa_model_snapshot`。
+- **客户端已加载工具**：工具数取决于正在运行的开发源码或安装版本；本仓库当前工作源码注册 91 个，至少应包含 `ansa_connection_status` 和 `ansa_model_snapshot`。新增结构化网格与几何特征工具的验收范围见验收记录，发行集成仍待完成。
 - **面板已连接目标**：后端在线、任务可受理，AI 目标为当前 ANSA 实例。
 - **模型可读取**：连接状态与模型快照均返回成功，目标进程、模型路径和 deck 与当前窗口一致。
 
@@ -210,7 +227,9 @@ py -3.12 -m venv .venv
 | --- | --- |
 | [安装与回退](docs/installation.md) | 外部 wheel、原生包、运行配置与版本切换 |
 | [架构说明](docs/architecture.md) | 包职责、主线程、目标与模型身份、持久任务 |
-| [工具参考](docs/tools.md) | 69 个接口及分类契约 |
+| [工具参考](docs/tools.md) | 91 个工作源码接口及分类契约 |
+| [结构化网格](docs/reference/structured-meshing.md) | 22 个 NASTRAN 结构化网格工具的限制与契约 |
+| [复杂实体网格复用流程](docs/reference/complex-solid-meshing.md) | 特征分块、整数分段、共享源面、合批与失败恢复 |
 | [开发说明](docs/development.md) | 环境、源码目录、构建和验证入口 |
 | [验证范围](docs/acceptance.md) | 当前回归、既有真机证据与已知限制 |
 | [发布说明](docs/releasing.md) | 源码边界、配套产物与发布步骤 |

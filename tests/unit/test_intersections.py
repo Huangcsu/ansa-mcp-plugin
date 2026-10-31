@@ -166,6 +166,40 @@ class MeshIntersections(unittest.TestCase):
         self.assertEqual(self.base.get_entity_calls, [])
         self.assertEqual(self.base.native_calls, [])
 
+    def test_solid_scope_uses_verified_cards_and_rejects_higher_order_or_wrong_results(self):
+        from test_structured_native import FakeBase as SolidBase
+        base = SolidBase()
+        for i, xyz in enumerate(((0,0,0),(1,0,0),(1,1,0),(0,1,0),
+                                 (0,0,1),(1,0,1),(1,1,1),(0,1,1)),1):
+            base.add("GRID", i, NID=i, CP=0, X1=float(xyz[0]), X2=float(xyz[1]), X3=float(xyz[2]))
+        solids = [base.add("SOLID", eid, EID=eid, PID=1, type="CHEXA",
+                          **{f"G{i}":i for i in range(1,9)}) for eid in (90,91)]
+        calls = []
+        def native(*args):
+            calls.append(args)
+            return {"intersected":solids,"penetrated":[],"penetrations":2}
+        base.CheckPenetration2Sets = native
+        collect = base.CollectEntities
+        def bounded_collect(deck, container, kind, *args, **kwargs):
+            if kind == "VOLUME":
+                raise AssertionError("explicit SOLID intersection must not scan unrelated VOLUMEs")
+            return collect(deck,container,kind,*args,**kwargs)
+        base.CollectEntities = bounded_collect
+        self.ansa.base = base
+        params = self.params((90,),(91,),entity_type="SOLID")
+        result = self.run_operation(params)
+        self.assertEqual(result["scope"]["entity_type"],"SOLID")
+        self.assertEqual(result["intersected"]["entity_ids"],[90,91])
+        self.assertTrue(all(r["type"]=="SOLID" for r in result["intersected"]["references"]))
+        solids[0].fields["G9"] = 1
+        with self.assertRaisesRegex(ValueError,"first-order"):
+            self.run_operation(params)
+        self.assertEqual(len(calls),1)
+        solids[0].fields.pop("G9")
+        base.CheckPenetration2Sets = lambda *a: {"intersected":[base.add("SHELL",90)],"penetrated":[],"penetrations":1}
+        with self.assertRaises(RuntimeError):
+            self.run_operation(params)
+
 
 class MeshIntersectionsMcpSchema(unittest.IsolatedAsyncioTestCase):
     async def test_schema_is_strict_and_submits_only_the_explicit_read_scope(self):
@@ -210,6 +244,7 @@ class MeshIntersectionsMcpSchema(unittest.IsolatedAsyncioTestCase):
             {"ttl_seconds": 86401},
             {"check": "intersections"},
             {"fix": True},
+            {"entity_type": "VOLUME"},
         )
         for changed in invalid:
             with self.subTest(changed=changed):
@@ -224,6 +259,8 @@ class MeshIntersectionsMcpSchema(unittest.IsolatedAsyncioTestCase):
             "mesh-intersections",
             300,
         )])
+        await server.call_tool("ansa_mesh_intersections", {**args,"entity_type":"SOLID"})
+        self.assertEqual(submitted[-1][1],{"deck":1,"first_ids":[11],"second_ids":[12],"entity_type":"SOLID"})
 
     async def test_main_server_registers_the_new_tool(self):
         from ansa_mcp_plugin.__main__ import create_server

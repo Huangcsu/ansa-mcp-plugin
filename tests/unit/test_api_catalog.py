@@ -221,6 +221,28 @@ class ApiCatalogChecks(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "main-thread assertion"):
             scripts.execute(WrongThread(), "api_lookup", {"action": "modules"})
 
+    def test_preflight_import_prefixes_only_match_the_ansa_namespace(self):
+        helper_scripts = (
+            "import ansa_mcp_bridge as bridge\nbridge.operations.structured_native.capture_mesh()",
+            "from ansa_mcp_bridge.operations import structured_native\nstructured_native.capture_mesh()",
+            "import ansa_tools as tools\ntools.capture_mesh()",
+            "import ansa_tools\nansa_tools.capture_mesh()",
+            "from ansa_tools import capture_mesh\ncapture_mesh()",
+        )
+        with self.fake_ansa({"base": {}}):
+            for script in helper_scripts:
+                with self.subTest(script=script):
+                    result = scripts.validate(script)
+                    self.assertTrue(result["valid"], result["missing"])
+                    self.assertEqual(result["checked_apis"], [])
+                    self.assertEqual(result["missing"], [])
+
+            missing_native = scripts.validate("from ansa import base\nbase.MissingApi()")
+
+        self.assertFalse(missing_native["valid"])
+        self.assertEqual(missing_native["checked_apis"], ["ansa.base.MissingApi"])
+        self.assertEqual([item["api"] for item in missing_native["missing"]], ["ansa.base.MissingApi"])
+
     def test_native_preparation_failure_still_cleans_verified_owned_process(self):
         integration = Path(__file__).resolve().parents[1] / "integration"
         spec = importlib.util.spec_from_file_location(

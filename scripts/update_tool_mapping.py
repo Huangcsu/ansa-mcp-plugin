@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MAPPING_DATE = "2026-10-19"
-CURRENT_MCP_TOOL_COUNT = 69
+MAPPING_DATE = "2026-10-28"
+CURRENT_MCP_TOOL_COUNT = 91
 
 MAPPING = {
     "ping": ("ansa_connection_status", "只读", "已验收"),
@@ -32,7 +32,7 @@ MAPPING = {
     "restore_model": ("ansa_model_open", "换模", "已验收：.ansa 默认备份及独立回读"),
     "save_model_as_ws": ("ansa_model_save", "文件写入", "已验收；路径不再限定旧工作区"),
     "check_mesh_quality": ("ansa_model_inspect: mesh_quality", "只读", "已验收：NASTRAN 选定 FACE 只读质量报告，不自动修复；SHELL/PSHELL及其他质量场景待验收"),
-    "surface_mesh": ("ansa_mesh_faces + ansa_mesh_surface", "只读/写入", "已验收：NASTRAN 单 FACE 完整未网格宏，Tria/1st Order、目标尺寸、参数恢复、SHELL范围回读及幂等；其他类型/多FACE待验收"),
+    "surface_mesh": ("ansa_mesh_faces + ansa_mesh_surface", "只读/写入", "已验收：原NASTRAN单FACE Tria长度模式；新增mapped_existing_seeds复用Create4SidedMesh，保留整数CONS种子，i10工业样本两个源面分别32 CQUAD4的格点/归属/原节点精确保护、四项原生质量、幂等及保存重开通过。当前仅四边未网格单FACE宏/毫米NASTRAN，完整体网格与任意复杂源面未验收，见结构化网格契约"),
     "export_solver_deck": ("ansa_model_export", "文件写入", "已验收：NASTRAN/ABAQUS/LSDYNA 单文件导出、独立内容及 SHA-256 回读"),
     "batch_benchmark_test": ("ansa_benchmark_run", "写入/换模/文件", "已验收（限定范围）：当前 NASTRAN 的 .ansa/.step/.stp 文件集，按大小/路径排序、严格最多10项及1000扫描条目，输入SHA保留；新备份实际重开核对、逐case计数/最大面积/最高中心Z排名、私有JSON/CSV与真实SHA、严格拒绝/原回执和后端恢复六组真机通过。成功结束实际打开备份；Open失败/身份未知停止，不自动恢复，保留备份及实际状态；验收的额外显式model_open恢复另行记录。未规范化新模型的默认Part计数差异仍严格拒绝；不是FPS/网格性能测试，不含其他格式/deck或画布"),
     "read_last_log": ("ansa_log_read", "后端读取/附件写入", "已验收：当前私有运行目录最新持久result/error及已有stdout、无正文不回退、最近200模型任务审计投影、严格1-65536字符正文预览、完整SHA256私有JSON附件/防覆盖/重启复用；五组真实MCP/SQLite与已有ANSA八对象结果读取通过，46原任务记录语义未变；不执行ANSA或读取任意路径，不冒充全局控制审计或恢复未持久输出"),
@@ -63,7 +63,7 @@ MAPPING = {
     "calc_element_mass": ("ansa_model_inspect: entity_metrics/mass；mass_properties", "只读", "已验收：原NASTRAN CQUAD4/CTRIA3/CHEXA8显式单实体GPWG三方向质量及保存重开/GUI；新增ABAQUS材料/属性等明确范围展开去重SHELL/SOLID后CalcElementMass标量，解析质量、壳板筛选及大模型副本经真机核对，见P0扩展。非壳/实体、复合材料和OPTISTRUCT未扩展验收；零/非有限或材料不明拒绝，不证明全部模型质量完整"),
     "calc_shell_area": ("ansa_model_inspect: entity_metrics/area", "只读", "已验收：NASTRAN CQUAD4/CTRIA3 SHELL 面积，与独立节点坐标计算一致，查询无修改、非法输入拒绝、保存重开及GUI；其他类型/deck待验收"),
     "calc_solid_volume": ("ansa_model_inspect: entity_metrics/volume", "只读", "已验收：NASTRAN CHEXA8 SOLID 体积，与独立节点坐标计算一致，查询无修改、非法输入拒绝、保存重开及GUI；其他SOLID类型/VOLUME/deck待验收"),
-    "check_intersections": ("ansa_mesh_intersections", "模型只读", "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3，独立卡片/坐标交线核算、混合/单类型/无问题、同组内部与范围外排除、反向组、隐藏、严格拒绝、幂等、保存重开和主窗口；固定相交模式，原生计数与去重实体分开，不修复；其他类型/deck及全模型自检待验收或实现"),
+    "check_intersections": ("ansa_mesh_intersections", "模型只读", "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3，独立卡片/坐标交线核算、混合/单类型/无问题、同组内部与范围外排除、反向组、隐藏、严格拒绝、幂等、保存重开和主窗口；新增显式 SOLID CHEXA8/CPENTA6 在独立2026.1.0通过12种原生及typed MCP对照，S25全量候选经有界批次复核；固定相交模式，原生计数与去重实体分开，不解释为相交对数；其他类型/deck及自动全模型自检待验收或实现"),
     "check_penetrations": ("ansa_mesh_penetrations", "模型只读", "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3、正厚度 PSHELL 且两组属性集合不相交，属性倍率/用户厚度两模式、独立卡片/间距核算、隐藏、范围排除、严格拒绝、幂等与保存重开；6项核心及3项原任务/主窗口续验通过，原GUI超时报告保留；相交/穿透类别与去重实体分开，不修复；同属性、其他类型/deck及复杂厚度场景待实现或验收"),
     "check_free_nodes": ("ansa_check_run: free_nodes", "模型只读", "已验收：NASTRAN 显式 GRID，SHELL/CONM2 卡片独立连接核算、质量节点选项、单节点邻居补齐/子集/无问题、隐藏单元、严格拒绝、幂等、保存重开及 GUI；保留原生检查历史，不修复；其他 deck、刚性/辅助/载荷等场景待验收"),
     "run_quality_check": ("ansa_mesh_failed_elements", "模型只读", "已验收（限定范围）：旧工具标准路径固定执行MeshQuality，check_name不选择子检查且不自动修复；复用现有NASTRAN显式1–200个CQUAD4/CTRIA3的MeshQuality工具、当前全局准则全文/指纹、原生报告树和去重失败单元。既有8项核心/主窗口与3项准则恢复补验分别保留，原核心报告末尾恢复断言失败仍为false；本次核对旧源码和四个生产模块未变，不新增ANSA执行。全模型、其他deck/类型和自定义检查名未覆盖"),
@@ -114,7 +114,7 @@ def main():
             "| 原功能 | 新入口/规划入口 | 读写属性 | 实现与验收状态 |", "| --- | --- | --- | --- |"]
     text.extend("| `" + r["legacy"] + "` | " + r["target"] + " | " + r["access"] + " | " + r["status"] + " |" for r in rows)
     text.extend(["", "独立 `search_ansa_api` 合并到 `ansa_api_reference: search`。版本匹配的官方帮助、运行时回退及11个模块的边界见[任务与API](tasks-api.md)。", "",
-                 "新增ABAQUS四边形、Map六面体、机构、接触及网格后续操作见[ABAQUS契约](abaqus.md)，不加入原79项历史映射的分母。", "",
+                 "新增显式 CAD 几何特征读取、CAD Map 受控网格、ABAQUS四边形、Map六面体、机构、接触及网格后续操作见[ABAQUS契约](abaqus.md)与专项参考，不加入原79项历史映射的分母。", "",
                  "当前入口见[工具参考](../tools.md)，模型、几何、检查和连接的范围见[通用操作](operations.md)。机器清单见[tool-mapping.json](../tool-mapping.json)，验证边界见[验证范围](../acceptance.md)。本页由 `scripts/update_tool_mapping.py` 生成。", ""])
     output = ROOT / "docs/reference/legacy-mapping.md"
     output.parent.mkdir(parents=True, exist_ok=True)

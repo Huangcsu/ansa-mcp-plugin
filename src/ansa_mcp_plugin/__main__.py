@@ -201,6 +201,8 @@ def create_server(service):
     register_connection_apply(server, submit)
     from .mcp.quality_workflow import register as register_quality_workflow
     register_quality_workflow(server, submit)
+    from .mcp.structured_meshing import register as register_structured_meshing
+    register_structured_meshing(server, submit)
     from .mcp.logs import register as register_logs
     register_logs(server, service)
     return server

@@ -16,8 +16,9 @@ class RecoverableBackendTests(unittest.IsolatedAsyncioTestCase):
         with patch('ansa_mcp_plugin.backend.recoverable.Service', side_effect=[BackendBusyError('occupied'), backend]) as factory:
             service = RecoverableService('runtime')
             server = create_server(service)
-            self.assertEqual(len(await server.list_tools()), 69)
-            blocked = await server.call_tool('ansa_connection_status', {})
+            self.assertEqual(len(await server.list_tools()), 91)
+            with patch('ansa_mcp_plugin.backend.recoverable.time.monotonic', return_value=service._retry_at-0.1):
+                blocked = await server.call_tool('ansa_connection_status', {})
             self.assertEqual(blocked.structuredContent['error']['code'], 'BACKEND_BUSY')
             self.assertTrue(blocked.isError)
             self.assertEqual(factory.call_count, 1)
@@ -31,7 +32,11 @@ class RecoverableBackendTests(unittest.IsolatedAsyncioTestCase):
     async def test_busy_write_is_rejected_without_submission(self):
         with patch('ansa_mcp_plugin.backend.recoverable.Service', side_effect=BackendBusyError('occupied')) as factory:
             service = RecoverableService('runtime')
-            result = await create_server(service).call_tool('ansa_grid_create', {
+            # Schema construction may exceed the retry interval on a busy host;
+            # freeze the existing retry window for this no-retry assertion.
+            server = create_server(service)
+            with patch('ansa_mcp_plugin.backend.recoverable.time.monotonic', return_value=service._retry_at-0.1):
+                result = await server.call_tool('ansa_grid_create', {
                 'operation_id': 'never-submitted', 'expected_target': {
                     'backend_id': 'old', 'instance_id': 'instance', 'session_id': 'session', 'generation': 1},
                 'expected_model': {'epoch': 1}, 'position': [0, 0, 0]})

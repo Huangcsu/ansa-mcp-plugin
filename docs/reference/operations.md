@@ -9,6 +9,16 @@
 - 任务型工具结果位于 `data.result`；连接状态及同步快照等入口直接返回 `data`。任务成功表示接口执行完成，问题计数和业务结论仍须读取结果字段。
 - 模型写入遵循单活动目标、单模型和所属 ANSA 主线程；工具不自动修复、重放或清理失败后的部分效果。
 
+## 几何前处理第一步：检查对称性
+
+几何清理、切分、分块和网格操作前，先只读检查候选对称面、外形、孔道、厚度、局部特征及对应关系，记录证据、容差和未知项。确认对称且任务允许时，优先完整备份、明确保留侧、删除另一半，完成并验证半模型后再镜像；之后核对对称面完整连接、单元方向、重复和保存重开。几何对称与材料、连接、载荷和约束的对称性分别判断，未知条件不得补成对称。未确认时保留完整几何，不擅自删半。
+
+现有查询、几何及网格工具按各自 schema 组合使用；本流程不新增自动对称识别工具，也不替代目标绑定、备份、显式范围及结果回读。
+
+检查范围同时包括镜面对称、旋转/周期对称和轴对称或回转特征。旋转对称须记录旋转轴、最小周期角、重复份数及周期边界节点/单元面配对；任务允许时先划分最小代表扇区，再旋转复制并验证全部交界。连续回转、离散旋转周期及镜面对称分别判断，局部圆孔或筒体不证明整件具有相同对称性。
+
+不能在找到一个镜面对称面后结束检查。多个镜面须核对是否在整件上共同成立：两个正交面可取1/4，三个正交面可取1/8，再按明确顺序镜像；对称面交线和各复制接口也须验证。非正交镜面及与旋转周期的组合按实际重复关系选择最小代表域。
+
 ## 模型生命周期与文件
 
 | 工具 | 关键参数 | 回包与限制 |
@@ -69,6 +79,7 @@ SET 直接成员最多 200 项。分页读取不能替代写入所需的完整�
 | `ansa_grid_create`、`ansa_grid_read`、`ansa_grid_update`、`ansa_grid_delete` | 仅 NASTRAN GRID；创建/读取/更新/删除使用显式坐标，更新和删除要求当前 `expected_position`；回读实体身份和坐标 |
 | `ansa_mesh_settings` | `action="read"` 或 `"update"`；更新必须同时给完整 `expected_settings` 和显式变更项；只影响当前 ANSA 会话，不写默认配置 |
 | `ansa_mesh_delete` | 1–200 个显式 SHELL 条件；仅删除这些 SHELL，不清理节点或几何 |
+| `ansa_mesh_surface(method="mapped_existing_seeds")` | 已保存、毫米 NASTRAN；每个源面为单 FACE 未网格宏、四条简单闭环 CONS，相对边整数分段已配对；保留种子，最多 200 CQUAD4，新备份/完整格点/归属/全范围保护；[完整契约](structured-meshing.md#保留整数-cons-种子的四边映射源面) |
 | `ansa_mesh_volume` | 仅已有未网格 NASTRAN VOLUME、六个 CQUAD4 轴对齐封闭盒体、既有 PSOLID/已定义 MAT1；先核实新 `.ansa` 备份，单次 TETRA RAPID，回读完整 FE、拓扑和体积 |
 
 `ansa_mesh_volume` 的原生结果可能包含 PYRAMID 和内部节点，不能按纯四面体或固定单元数量解释。`ansa_grid_*` 和上述网格入口的当前验收范围以其工具映射记录为准。
@@ -90,7 +101,7 @@ SET 直接成员最多 200 项。分页读取不能替代写入所需的完整�
 | `ansa_check_run` | 1–200 个 NASTRAN GRID；`consider_nodes_with_mass_free` 为严格布尔值 | FreeNodes 静默检查；`issue_counts`、`failed_entity_ids`、连接上下文和报告树 |
 | `ansa_mesh_check` | 1–200 个 NASTRAN CQUAD4/CTRIA3；`angle` 满足 `0 < angle < 180`，默认 120 | 固定 `sharp_edges_type=0/exclude_edges=0`；返回叶问题统计和失败 SHELL ID |
 | `ansa_mesh_failed_elements` | 1–200 个 NASTRAN CQUAD4/CTRIA3 | 使用当前会话全局 MeshQuality 准则，返回准则全文/SHA-256、问题统计和去重失败 ID；零值只适用于本次范围 |
-| `ansa_mesh_intersections` | 两组各 1–200 个唯一 NASTRAN SHELL，组间不重叠 | 只检查组间相交；原生计数、原生列表项数与去重 SHELL 分别返回 |
+| `ansa_mesh_intersections` | 两组各 1–200 个唯一 NASTRAN 单元，组间不重叠；`entity_type=SHELL/SOLID`，默认 SHELL | SHELL 支持 CQUAD4/CTRIA3，SOLID 支持 CHEXA8/CPENTA6；只检查组间，原生计数、列表项数与去重实体分别返回；不读无关 VOLUME 成员 |
 | `ansa_mesh_penetrations` | 两组各 1–200 个唯一 NASTRAN SHELL；`thickness_mode=property/user`，`factor` 为正有限数 | 两组 PSHELL 属性集合不能相交；分别返回相交、穿透和并集实体；类别可以重叠 |
 | `ansa_rigid_dependencies` | 1–200 个 NASTRAN RBE2 | 核实 GN、GM、CM 和 GRID 连接闭包；返回问题叶、去重 RBE2/GRID 和报告树 |
 | `ansa_model_inspect(action="geometry_check")` | 1–100 个 NASTRAN FACE；`check="basic"`，严格布尔 `single_cons` | 核验边界 CONS 归属，返回完整报告树、问题叶、`failed_cons_ids`、`affected_face_ids` |

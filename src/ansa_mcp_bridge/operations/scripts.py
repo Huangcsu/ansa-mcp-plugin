@@ -7,6 +7,8 @@ import json
 import keyword
 import re
 
+from ansa_mcp_shared.framing import MAX_FRAME_BYTES
+
 from . import api_catalog, api_documentation
 
 MODULES = ("base", "mesh", "session", "constants", "connections", "cad", "morph", "guitk", "utils", "batchmesh", "kinetics")
@@ -32,9 +34,11 @@ def validate(script):
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for item in node.names:
-                if item.name.startswith("ansa"):
+                if item.name == "ansa" or item.name.startswith("ansa."):
                     aliases[item.asname or item.name.split(".")[0]] = item.name if item.asname else "ansa"
-        elif isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("ansa"):
+        elif isinstance(node, ast.ImportFrom) and node.module and (
+            node.module == "ansa" or node.module.startswith("ansa.")
+        ):
             for item in node.names:
                 if item.name != "*":
                     aliases[item.asname or item.name] = node.module + "." + item.name
@@ -286,5 +290,40 @@ def execute(state, tool, params):
     if tool == "api_lookup":
         return api_reference(params)
     if tool == "script_execute":
-        return execute_script(params)
+        result = execute_script(params)
+        from ..journal import Journal
+
+        result_bytes = Journal._canonical(result, "script execution result").encode("utf-8")
+        if len(result_bytes) <= MAX_FRAME_BYTES // 8:
+            return result
+
+        from ansa import base
+        from . import structured_evidence
+
+        # Archive an explicitly replaced model under its new lifetime.
+        state.probe()
+        stored = structured_evidence.store_report(
+            state, base.CurrentDeck(), "script_execute_result", result
+        )
+        descriptor = {
+            key: stored[key]
+            for key in (
+                "ok", "report_id", "sha256", "kind", "context",
+                "stored_complete", "usable_for_mutation",
+            )
+        }
+        response = {
+            "result": descriptor,
+            "result_paged": True,
+            "stdout": "",
+            "stdout_truncated": False,
+            "preflight": {
+                "valid": result["preflight"]["valid"],
+                "stored_in_report": True,
+            },
+        }
+        response_bytes = Journal._canonical(response, "paged script execution result").encode("utf-8")
+        if len(response_bytes) > MAX_FRAME_BYTES // 8:
+            raise ValueError("script result was stored but its paging descriptor exceeds the response budget")
+        return response
     raise ValueError("Unsupported script/reference operation")

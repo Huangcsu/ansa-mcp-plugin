@@ -4,7 +4,129 @@
 
 V0.1.3 在 V0.1.2 的 Quality Inspector 自动修复与分批报告能力基础上，增加连接稳定性修复与面板标题栏按钮，当前注册69项 MCP 工具。历史记录保留各阶段当时的提交和安装状态；本版仍为源码预览版，配套正式原生包尚未构建安装。
 
+上述69项是V0.1.3历史基线，后续条目保留各阶段当时计数。当前工作源码为 **91项MCP、22项结构化网格工具**；2026-10-26的89项/20项是多块阶段快照。受限网格案例与本轮提交前检查见本页后续条目。S25仅保留为既有回归证据，正式原生包安装验收仍待完成。
+
+下文各历史阶段的工具数、源码哈希和“与当前一致”均指该阶段验收时的快照，不表示后续源码自动继承相同验收。
+
 ## 环境与范围
+
+### 2026-10-25 保留整数 CONS 种子的原生四边源面（受限验收）
+
+扩展既有 `ansa_mesh_surface`，新增 `method="mapped_existing_seeds"`，工具总数仍为 83。毫米 NASTRAN 的四条开放 CONS 简单闭环、相对边整数分段配对和单 FACE 未网格宏通过预检后，调用原生 `Create4SidedMesh`；实际源面与邻接保护范围分开表达，不重写长度或重新分段。新备份后才允许周界点实例化，保护原 CAD canonical export、全部原有 GRID 及非目标定义/FE，恢复完整网格参数并独立回读格点、归属与节点投影。
+
+最终 **798 项单元、83 工具 stdio/TCP 模拟、86 文件原生 staging 哈希核对通过**。独立 ANSA 2026.1.0 经真实 MCP→TCP→主线程完成 52 次调用，对应 50 个独立任务：48 成功、2 次陈旧种子预期拒绝；其余 2 次调用为原操作回执读取，没有再次网格化。11 个验证源码哈希前后一致，所属 PID 16364 归属核对后关闭。最终报告：`runtime/verification/stage-three-4c167d39773f4964af53512ed4fb7c7b/mapped-surface-report.json`。
+
+| `i10o_simp.step` 独立导入案例 | 实际范围与结果 |
+| --- | --- |
+| FACE 8 矩形候选源面 | CONS 38/40=4、41/50=8；32 CQUAD4、45 个使用节点、21 个新内点；原有 94 GRID 最终卡片精确保留；最大源面投影约 7.11e-15 mm |
+| FACE 9 斜置矩形候选源面 | CONS 42/44=8、43/48=4；32 CQUAD4、45 个使用节点、21 个新内点；原有 86 GRID 最终卡片精确保留；最大投影约 3.55e-14 mm |
+
+两组规则格点连接、自由边、方向、PID/Part、宏归属、新 FE 指纹、整数边种子及保存重开通过。原生 ASPECT/JACOB/SKEW/WARP 报告均完整、失败及未知为零；最大 ASPECT 分别约 1.0 / 1.214008，最小 JACOB 均约 1.0。验证使用显式夹具阈值 5 / 0.7 / 30 / 5，仅覆盖这四项，不能替代完整项目质量准则。
+
+原生映射引起少量边界坐标舍入：仅目标周界、仅坐标、实测不超过 1e-12 mm 才显式恢复原值并精确复查，3 / 14 个节点的最大变化约 7.11e-15 / 3.44e-13 mm，原始差异完整保留。真正邻接 FACE 的 center 每分量最多 1e-12 mm、正面积相对最多 1e-12 的显示重算只在同操作 CAD hash 完全一致时接受并记录；非邻接 FACE、bounds、法向和原始卡片继续精确保护，不改通用快照规则。既有 Part 显示派生值边界保持。
+
+备用 reviewer 发现的新增 GRID 意外约束、失败后已知增量丢失、实体观察缺上下文门禁三项 P2 已修复并复核。定向反例确认 CD/PS/SEID 非默认拒绝、恢复失败仍独立观察、上下文失效时不备份或归属其他模型实体。前两轮误拒绝及诊断、第三轮通过和最终门禁修正后的通过分别保留；没有在不明任务上换键重放。首次映射 MCP 耗时约 2.24 / 2.03 秒，包含备份与审计，不据此声称加速倍数。
+
+这是同一工业 CAD 的两个源面能力案例，分两次导入验收，没有合并成整件网格；测试标签 endcap 不证明源/目标端盖角色。未生成 SOLID，未验证源/目标/侧壁扫掠对应、自动模板判型、连续 CAD 体覆盖或完整项目质量。未安装正式包、改动用户工作实例或增加画布/求解器验收。完整契约见[四边源面](reference/structured-meshing.md#保留整数-cons-种子的四边映射源面)。
+
+### 2026-10-25 原始 CAD 边界到原生 CONS 分段（受限验收）
+
+新增 `ansa_mesh_seed_read`、`ansa_mesh_seed_apply`，当前共 83 个工具、其中 14 个结构化网格工具。写入直接复用 ANSA 2026.1.0 的 `mesh.NumberPerimeters`；相同段数组合并调用，读取/分页/预检不调用会实例化 GRID 的 `CollectEntities(CONS, GRID)`。备份后才收集真实边界点；原有 GRID、非目标周界、实体归属、全 CAD 导出指纹及 FE 受保护。点预算在实例化前检查，最终回读使用操作前基数；Part 派生值豁免仅覆盖目标 CONS 实际邻接 FACE 所属 Part。
+
+780 项单元、83 工具 stdio/TCP 模拟、84 文件原生 staging 哈希核对通过。最终独立 ANSA 经真实 MCP→TCP→主线程完成 75 次任务：69 成功、6 次预期拒绝或恢复诊断，所有任务均有终态。11 个验证源码哈希前后一致，所属 PID 29120 经归属核对后关闭。报告：`runtime/verification/stage-three-ec378d0f27204296aa895769f6df4e77/cons-seed-report.json`。
+
+| 案例 | 实际范围和结果 |
+| --- | --- |
+| 已知圆柱夹具 | 6 条原始 CONS，规划为周向 12 段、轴向 6 段；2 次原生调用，66 次边界点投影，独立点数、坐标和保存重开通过 |
+| `i10o_simp.step` | CONS 5/10/17 分别为 6/6/8 段；最大点投影偏差约 2.84e-14 mm，保存重开通过 |
+| `i02o_m2.step` | CONS 6/13/19 分别为 6/6/8 段；最大点投影偏差约 7.08e-13 mm，保存重开通过 |
+| `i23o_s31.step` | CONS 8/12/16 分别为 6/6/8 段；最大点投影偏差约 4.34e-9 mm，保存重开通过；Part 显示量的 11 项浮点末位变化单独保留 |
+| `i08o_m8.step` | 原始 CAD 指纹未变，但原生点投影偏差最大约 1.044e-5 mm，超过固定 1e-7 mm 核验阈值，且范围检查未通过；任务明确失败并保存恢复模型，不计为成功分段 |
+| `i29o_bracket.step` | 实际原生单位为 inch；专用读取在毫米前置条件处拒绝，卡片指纹和源文件不变，未自动缩放 |
+
+另验证错误分段指纹、旧分页证据、旧设置哈希及已有内部 GRID 的重新分段请求。已有内点拒绝前备份已完成，原生 setter 调用数为零，原卡片保持；不据此声称所有失败都没有副作用。成功案例没有生成 SHELL/SOLID，工业模型仅验证每件选定的三条边，并非整件网格验收。
+
+原生实例化的周界点也进入 `__ALL_ENTITIES__`，新增 ID 单独记录。当前保留所有操作前已有 GRID，尚未开放重设已有内部点。i02 的目标 CONS 包围盒有约 2.14e-8 mm 离散化漂移，只有目标/真正邻接派生 bounds 允许不超过 1e-7 mm 的变化，且 CAD 导出指纹必须相同。保存重开比较仅允许 Part 质量/面积/COG/惯量显示量的 1e-12 相对舍入、零绝对容差，原始差异保留；坐标、连接和其他卡片仍精确比较。两类数值处理均不代表工程网格质量标准或连续 CAD 等价证明。
+
+只读 catalog 脚本覆盖 31 个源文件（28 STEP、3 BREP），5 份原生调查按源 SHA256 匹配；静态 B-spline token 不等于曲面不能规则划分，`SurfaceInfo[0]` 是 surface index，不是几何类型码。尚未实现 NASTRAN 已播种四边形源面接口、自动模板判型、O-grid 或整件实体网格生成。未安装/热更新用户工作实例，未构建 `.bpkg`、未提交推送，也未新增画布或求解器验收。
+
+### 2026-10-25 原生能力优先与转换偏差诊断（受限验收）
+
+开发准则明确原生能力及已有实现优先，确认具体缺口后才自研。复查同版本官方 `ConsToCurves`、`EvaluateCurvePoint`、`ProjectPointToCons` 和 `MatchCurvesAndCons` 等接口；转换和投影均复用 ANSA 算法。`MatchCurvesAndCons` 按 tolerance mode 返回匹配对，官方签名不返回距离，本轮仅核对文档，未新增运行调用或修改全局容差。
+
+既有转换映射新增 `conversion_fidelity`：在辅助 CURVE 上读取九个归一化 U 位置，原生投影回对应 CONS；延长线投影按返回的最近端点计距。全部有效为 sampled_only，缺项为 incomplete；保留最大已观测距离、RMS、全部样本及错误，不自动设置工程容差或判整体通过。来源范围 verified 可与采样 incomplete 并存。
+
+752 项单元回归通过；83 文件原生 staging 哈希一致。独立 ANSA 2026.1.0 经真实 stdio MCP→TCP→主线程完成 20 次任务（18 次成功、2 次预期拒绝），确认 6 条映射共 54 次评估、54 次投影，原范围及保存重开回读通过。两条直线采样距离为 0；四条半圆转换样条的最大已观测距离约 0.000793872 或 0.004002364 mm，仅为该夹具的有限采样观察。最终报告 `runtime/verification/stage-three-f865591e9aa444aa806929e72f90bc68/geometry-boundary-report.json` 的 10 个源码哈希与当前一致；自建 PID 34884 已关闭。
+
+另在独立实例检查原始 FACE 导出的修剪表示、CURVE 接口对 CONS 的实际行为及局部切向/曲率，结束后关闭自建 PID 18256。三维修剪样条与参数域表示须遵守 IGES 的偏好语义，不能只选更规则的表示宣称精确。已查接口未证明原始 CONS 的完整解析表示，也不能据此断言 ANSA 无此能力。九点诊断不证明连续等价或反向覆盖，不授予自动种子/孔识别权限；未安装 `.bpkg`、提交或推送，未修改用户 S25，也未新增画布或求解器验收。
+
+### 2026-10-25 受控 CONS 辅助曲线转换（受限验收）
+
+新增写工具 `ansa_geometry_boundary_prepare`，当前 81 项工具。它要求显式 FACE-only 特征指纹、新备份、与源 FACE 分离的已有空 Part，最多 32 CONS。逐条核对 ConsToCurves 返回值与实际新增 CURVE、原生 Part 归属及原范围；辅助 Part 的包围盒等派生字段由其新 CURVE 重算核对，不扩宽既有快照的忽略字段。每次后续写入前核对上下文；集合读取失败不得推断为空，异常立即停止后续转换，保留部分归属及恢复诊断。
+
+745 项单元回归、81 工具 stdio/TCP 模拟和 82 文件原生 staging 哈希核对通过。独立 ANSA 2026.1.0 经真实 MCP→TCP→主线程完成 20 次任务（18 次成功、2 次预期拒绝）。4 FACE/6 CONS 分别创建 6 CURVE，全部归入辅助 Part 2，原 FACE/CONS/HOT POINT、既有 CURVE 归属和 FE 卡片通过独立回读；转换前后 FACE 来源指纹相同。错误指纹及已占用辅助 Part 在转换前拒绝且未生成备份。保存重开后原生完整卡片指纹、CONS 边界记录一致，显式辅助直线可生成种子建议。
+
+2 条转换 CURVE 以 112 输出，完整多项式参数区间严格线性、原生长度为 5、两端误差为 0；112 末端冗余值不一致单列，不宣称完整 IGES 标准一致。另 4 条半圆以 126 样条输出，长度约 6.2817524894 或 6.2832269181，与理论半圆弧长 6.2831853072 不同；不拟合圆弧，不生成原 CONS 圆弧种子，全部 `source_geometry_equivalence=not_proven`。来源归属成功不等于原始 CAD 等价证明，几何状态仍 incomplete。
+
+首轮验收已通过转换及保存重开的原生卡片检查，因脚本错误比较不同数据库/epoch 的来源指纹而停止；保留其报告及所有终态任务，核对归属后关闭，再在新实例完成最终验收。复审发现的“转换后未在归属写入前核对上下文”和“集合 None 当空集”均已修复、补测。最终报告 `runtime/verification/stage-three-f00faf5d11224b9084409a32c76f6da6/geometry-boundary-report.json` 的 9 个源码哈希与当前一致；自建 PID 26908 已关闭。
+
+本轮不证明任意曲线/工业模型规模、原始圆弧解析等价、崩溃原子恢复或全自动分块。逐条中间映射仍在内存，最终任务结果及阶段 ledger 持久化；进程崩溃后必须查询原任务并检查备份与原生状态。未构建或安装 `.bpkg`，未提交或推送，未修改用户 S25 模型，也未新增画布/求解器验收。
+
+### 2026-10-25 CONS 原生边界闭环（受限验收）
+
+本轮在既有 `ansa_geometry_features` 上增加 `feature_schema=2`，工具总数保持 80。通过 HOT POINT 的实际编号和 `position`、CONS 双向邻接生成有序闭环；端点坐标和邻接纳入新鲜度校验。原生 CONS 仅证明拓扑闭合，解析状态保持 incomplete，不自动判孔或生成 CONS 圆弧种子。单请求最多 20 FACE、500 条唯一 CONS、1000 个 HOT POINT；0、1 或多于 2 个端点的 CONS 保留不完整记录。
+
+最终 726 项单元回归和 80 工具 stdio/TCP 模拟通过；81 文件原生 staging 哈希一致，包含 `geometry_contours.py`。独立 ANSA 2026.1.0 经真实 MCP→TCP→主线程完成 26 次任务，其中 24 次成功、2 次为预期的旧证据拒绝。4 FACE、6 CONS、4 HOT POINT 全部识别为闭环，CONS 的解析状态均保持 incomplete；同 epoch 平移边界和独立曲线分别使旧证据失效，保存重开后原生指纹、端点身份和闭环顺序保持一致。读取前后的几何/端点/Part/FE 指纹一致。冷读为 4 次导出、1 次 SurfaceInfo，命中为 1 次导出、0 次 SurfaceInfo；两次均有 6 次 CONS 端点查询和 4 次去重后的端点邻接查询。单次内部耗时约 0.0929/0.0243 秒，仅为合成夹具观察。
+
+官方文档明确支持 HOT POINT 的 `Entity.position` 和 `GetConsOfHotPoints`；`CollectEntities` 以 CONS 为容器读取 HOT POINT 的组合，由本轮 2026.1.0 原生探针与全链路验收确认，文档未逐项承诺所有容器组合。纯 helper 复审发现的弧 sweep/长度矛盾和跨 FACE 顶点冲突均已修复、补反例并复核。最终源码哈希一致，自建 PID 16108 已核对归属后关闭。报告：`runtime/verification/stage-three-312c0c1e315747eab07b95ee36a61f5d/geometry-features-report.json`。本轮未生成或安装 `.bpkg`，未操作用户模型，未新增画布或求解器验收。
+
+### 2026-10-25 原生几何特征与分段（受限验收）
+
+新增只读 `ansa_geometry_features` 注册及参数契约。它接受显式 FACE/curve 范围，FACE 报告局部曲率，种子建议仅用于显式选择的 IGES 100/110 曲线；8 项、4 MiB 的派生缓存不改变每次访问的范围导出与拓扑核验要求。本轮 711 项单元回归、80 工具 stdio/TCP 模拟均通过，7 份真实 IGES 样本解析结果符合预期；原生 staging manifest 实际包含 80 个文件，含 `geometry_features.py` 和 `geometry_features_iges.py`。独立 ANSA 2026.1.0 经真实 stdio MCP → TCP → 主线程完成 18 次任务，验证 4 FACE、6 CONS、3 CURVE 的特征与自动分段、读取前后卡片/Part/FE 指纹一致、同 epoch 平移后旧证据拒绝、新快照 cache miss，以及保存重开一致。冷读 4 次导出、1 次 SurfaceInfo，命中后 1 次导出、0 次 SurfaceInfo；内部计算单次约 0.0916 秒与 0.0259 秒，仅为合成夹具观察。最终验证源码哈希与当前源码一致，所属 PID 经完整启动参数核对后关闭。解析器复审发现的短弧误判、微小半径、Hollerith 数值混用和直线长度溢出均已修复并回归。本轮未生成或安装 `.bpkg`。不得据此声称全自动网格划分或未经实测的加速效果。
+
+### 2026-10-24 复杂实体网格复用阶段
+
+新增 `ansa_mesh_seed_plan` 与 `ansa_mesh_sweep_prepare`，共 79 项 schema。种子工具基于调用方声明的长度、圆弧半径/弦误差，协调整数等分、最小段数和倍数，不读取或写入 CAD 边分段。合批工具从 ANSA 主线程一次读取已存在的源 SHELL，缓存相同 PSOLID 预检；先保留共享 GRID 组件，再打包兼容组件。参数/预算冲突、悬挂节点、非流形边、精度不足及 CPENTA 比例超限时不返回执行参数。源面接口检查同时接入直接扫掠入口；定向回归验证绕过合批准备仍会拒绝悬挂源面。
+
+最终源码 677 项单元通过，79 工具 stdio/TCP 模拟通过；原生暂存 78 个文件的哈希核对通过。3000 条同组边的报告为 1,081,749 字节，生成 24 条可供块计划消费的分段约束。复审发现的悬挂节点、块命名顺序及报告平方膨胀问题均修复，大坐标偏移反例保持 blocked。
+
+独立 ANSA 2026.1.0、NASTRAN，经真实 stdio MCP → TCP → 主线程完成种子规划及两个不同尺度/层数夹具，共 41 次任务调用。每个夹具的两个兼容块合为一次扫掠：尺度 1、两层生成 2 CHEXA + 2 CPENTA、15 GRID、2 个共享竖向面；尺度 3、三层生成 3 CHEXA + 3 CPENTA、20 GRID、3 个共享竖向面。独立连接回读中坐标无重复、非流形面为零，保存重开 FE 指纹一致。参数冲突与 CPENTA 限制的拒绝检查前后 FE 指纹不变。
+
+复现入口为 `tests/integration/meshing_reuse_ansa.py <new-owned-run-dir>`。最终报告为本机 `runtime/verification/stage-three-f6383c870a2f440e96513bbf3f820f10/meshing-reuse-report.json`，包含源码 SHA256；验证前后源码一致，完成后核对 PID/参数并关闭自建实例。早期验证的失败目录保留，不对未知写操作换键重放。用户工作窗口未热更新或修改。
+
+本阶段不重划 S25，不宣称端到端耗时提升百分比、工业案例全验收或任意复杂 CAD 自动分块。默认允许的 CPENTA 比例仅为接口上限；工程计划应显式指定。尚未实现原生曲率自动提取、O-grid 自动构造、未来源面串接、多组统一恢复执行器或正式发行包安装；完整流程见[复用说明](reference/complex-solid-meshing.md)。
+
+### 2026-10-24 CAD 裁剪域与实体交叠阶段
+
+新增参数化离线 CAD 验收内核与 CLI，不增加 MCP 工具数量。显式声明完整原始 FACE 清单、源/目标分组及 CAD 文件 SHA256，使用独立 Gmsh 4.15.2/OpenCASCADE 的双向差集、并集、交集和面积守恒检查。S25 全部 32 个原始 ANSA FACE 对应 135 个最终 FACE，分片覆盖通过，其中 R20 的原始 2 面对应 24 片；丢片及重复片反例可被检测。独立带孔平面另验证完整、缺片、重复、多余四种情况，避免把 R20 编号写死为通用能力。
+
+这是规定容差下的裁剪域数值核验。STEP 到 ANSA/IGES 的转换对照为 27 面通过、5 面因布尔结果不守恒保持 incomplete，不能宣称完整 STEP→网格链路通过。原始清单完整性和原生导出归属仍需 MCP 调用方独立回读；离线清单不是原生模型绑定，尚无自动导出、分块规划或失败回滚的统一 MCP 编排。
+
+`ansa_mesh_intersections` 增加可选 `entity_type="SOLID"`，SHELL 默认契约保留。CHEXA8/CPENTA6 的分离、部分重叠、包容、共享面接触、共享角点包容、重复六类各一例，经正式 MCP 实际调用共 12 例符合预期。S25 全量 19,532 个实体按 AABB/SAT 离线筛选，保留全部共享节点对；最终数值保护版保留 30,461 个未解决候选，原有 60 批加一对补查均返回无相交实体，检查前后全量 FE 指纹一致。原生返回数量是实体数，不是已核验的相交对数。扭曲实体的凸包只用于排除；无法确定的情况保留 incomplete，浮点投影临界值增加误差保护。
+
+完整边界清单仍有 70 个自由面片未关联 CAD。两个 R8 孔与 R20 的面片中心/边中点抽查分别观察到约 0.154、0.154、0.050 mm 的径向误差，超过本轮 0.02 mm 检查容差；前期节点投影通过不能消除这些反例。未执行局部重划，也未重验全部质量或求解器，不能将本阶段算作高质量网格整体完成。
+
+独立实例保存并重开新 S25 检查点，FE 指纹一致，已实际查看其 ANSA 画布并取得原生 SnapShot。源码单元 659 项通过，77 工具模拟通过；本轮源码未提交、推送、热更新用户实例或安装正式包。此前阶段记录保留当时的证据边界。
+
+### 2026-10-24 CAD 成员与边界阶段
+
+`ansa_mesh_interface_audit` 增加可选 `cad_boundary`，仍为 77 工具。独立 ANSA 2026.1.0、NASTRAN 夹具经真实 stdio MCP → TCP → 主线程生成单 FACE 三角网格并拉伸成 2 个 CPENTA。源 FACE 的 `Num. Volumes` 变化只在新增体原生边界、单 FACE 宏的完整源 SHELL 归属及精确增量核对后接受；其他几何/卡片保护保持。
+
+初始 4 个源节点全部投影通过；移动一个固定成员节点 0.1 后，原生 SHELL 归属和节点集合保持，全部 4 个节点仍被测量，移动节点距离精确读为 0.1、投影失败。证据按每页 1 行完整取回；其余 6 个未声明自由面明确失败，连续 CAD 覆盖保持 incomplete。保存重开后，原生 FACE/SHELL 成员、节点和独立 FE 卡片指纹一致。2 个 CPENTA 只是该夹具规模，不是新的产品数量限制。
+
+S25 原始/最终模型在自建实例中只读打开，分别回读 32/207 个 FACE；最终 207 个面的宏 SHELL、边界框与 CONS 和保存清单一致。正式 MCP 对两个 R8 孔各 112 节点、R20 的 24 个分片候选共 1596 节点完成全部关联投影；径向解析尺寸检查另列。只声明孔壁的局部范围保留未覆盖自由面失败，R20 原始裁剪域覆盖仍未证明，没有提升为全模型几何验收。没有重划 S25 或 M3，输入文件指纹未变。
+
+最终 636 项单元通过；77 工具模拟及原生暂存 73 文件清单通过。新审查未发现实质问题。未新增 GUI 画布、完整连续 CAD 覆盖、非相邻交叠、原生再生或求解器验收；源码尚未提交、推送或安装为正式包。复现入口为 `tests/integration/structured_boundary_ansa.py`，预算及不完整状态说明见[结构化契约](reference/structured-meshing.md)。
+
+### 2026-10-24 结构化网格首期
+
+新增 8 工具后，当前注册 77 项输入/输出 schema。独立 ANSA 2026.1.0、NASTRAN 夹具通过实际 stdio MCP → 后端 → TCP → ANSA 主线程的 13 项验收：静态计划、陈旧计划拒绝且未变、一次 FACE 平面切分、源面预检、整数分段计划、陈旧源指纹拒绝、两层混合扫掠（2 CHEXA + 2 CPENTA）、实际来源 FE 配对读取、缺失覆盖保持 incomplete、证据分页、原生质量（4 通过/0 失败/0 unknown）、保存重开后的独立节点/连接/属性/材料卡片指纹一致。工具表同时核对 77 项 schema。
+
+真实试验暴露并修正了原生 Part/属性引用格式、HOT POINT、新 VOLUME 及未使用辅助 PSOLID/MAT1 的适配；新 VOLUME 成员必须恰好覆盖本次新实体，辅助对象另受引用和数量约束。既有 FE 的 Part 归属、卡片及坐标保持保护。Part 派生显示字段的范围见结构化契约，原质量 scope hash 未改变。
+
+`verified` 不是原生再生承诺。MapBlock 写回、连续 CAD 双向覆盖、非相邻实体交叠、工业多块自动化、GUI 画布与求解器未新增验收。S25 的保存清单仅做离线复核，缺少完整孔壁归属时返回 incomplete；没有重划 S25 或 M3。
+
+复现入口为 `tests/integration/structured_meshing_ansa.py <owned-run-dir>`；独立启动、PID/完整参数/主线程检查复用 stage-three。原生任务异常时保留原任务和证据，恢复测试必须先结束原任务、回读并从检查点重开，不把超时当取消。源码暂存不是正式 bpkg，也没有热更新用户工作窗口。
 
 | 项目 | 当前范围 |
 | --- | --- |
@@ -191,3 +313,285 @@ LS-DYNA 两组另验证：同路径重开后旧模型上下文在受理前拒绝
 ## 复现入口
 
 单元、模拟 MCP 和按能力划分的真实验收入口见[开发说明](development.md)。真机执行前须核对独立实例归属和用户许可，报告中分别记录新执行、续验及未执行部分。
+
+## 2026-10-25 有限六面对应诊断与原生 Map 路径验证
+
+既有 `ansa_geometry_features` 增加可选 `sweep_options`，复用本次范围读取和来源指纹。纯标准库 `cad_sweep_topology.py` 验证显式同 Part 六面域的 12 CONS、8 HOT POINT、双向邻接、角点平移和四侧壁对应。几何推断止于角点；拓扑通过仍为整体 `incomplete`，连续 CAD 几何及原生执行契约保持未验证，不增加网格写工具或改变 deck 门禁。审查发现的域内多报 HOT POINT→CONS 邻接已修复；域外邻接不被错误算入选定域。
+
+独立 ANSA 2026.1.0 GUI 合成 20×30×10 mm 六面盒，整数分段及原生四边映射形成 88 CQUAD4。公开只读诊断通过，错误距离返回 unsupported，缓存请求不混用，模型回读前后精确一致，保存重开后的旧证据分页拒绝。导入工业 i10 后，其 11 FACE 整体范围因不满足六面模板明确拒绝；诊断不改模型，STEP 文件 SHA-256 不变。这是工业拒绝例，不代表工业自动分块或所有样本验证。
+
+`VolumesExtrude.translate` 的显式 FACE/SHELL target/side 组合在本夹具中返回 Bad target parameters，未生成实体；不据此声明 ANSA 不支持 CAD 扫掠。随后按当前版本官方示例，通过 **MCP 通用脚本调用** `mesh.VolumesMap(master, slave, round, ...)` 生成 48 CHEXA、105 个实体节点，新增 15 GRID。原有 GRID/SHELL 卡片和 FACE 宏的 SHELL 成员保持不变，有界 CAD 导出哈希不变；六个 FACE 的 `Num. Volumes` 和 Part 汇总卡片发生了已记录变化，不能宣称全部旧卡片不变。
+
+独立核对 4×6×2 的全部格点单元占位，无缺失或重复；总体积约 6000 mm³，中心及八个高斯点 Jacobian 为正。所有 48 个 SOLID 的原生 VOLUME 归属已回读，88 个外皮面片与六个 CAD FACE 的原生网格关联双向匹配，全部关联节点投影通过，保存重开 ORACLE 完全一致。ORACLE 不包含 VOLUME 卡片，VOLUME 成员另行记录；连续 CAD→FE 覆盖、完整原生/项目质量、工业泛化、GUI 画布及求解器未由本次证据验收。
+
+本轮另修复脚本预检把 `ansa_mcp_bridge` 等相似前缀误认成 ANSA API 的问题，只识别 `ansa` 和 `ansa.` 原生命名空间，真实缺失 API 仍拒绝。最终 **812 项单元、83 工具模拟、87 文件 staging 哈希**通过；staging 不是正式 `.bpkg`。独立实例恢复盒体后已按身份核对关闭，用户工作实例未修改；未提交、推送或安装正式包。
+
+## 2026-10-25 受控 CAD Map 与有限连续导出域验收
+
+新增公开 `ansa_mesh_cad_map`，当前共 84 工具、15 个结构化网格工具。plan/apply 分别注册为内部只读和写操作，复用现有任务、Journal、provenance 与证据分页。首版限定已保存 NASTRAN 毫米模型、封闭六面低阶平面直扫域、已就绪相容规则四边面网格、独立空输出 Part，以及模型中没有既有 SOLID/VOLUME；不是任意工业 CAD 自动划分入口。
+
+在查验同版普通 FACE、邻接、投影及 IGA API 后，使用原生 FACE→IGES 导出，并对有限的 128/144/142/102/112/126 表示读取完整支撑面及修剪定义。单位权重 degree 1 的 2×2 控制网、完整单位方形修剪环及两种边曲线表示均与原生 HOT POINT/CONS 对应后，才允许计划。该证明明确限定导出表示与精度，不宣称原生 CAD 内核精确等价。未知形式、曲边、内环和额外几何保持拒绝。
+
+独立 ANSA 2026.1.0 的公开链路完成：未网格六面盒 CAD→原生整数分段→48＋40 CQUAD4→受控 Map 48 CHEXA、15 新 GRID、1 VOLUME。全部 105 个实体节点和 24 源四边形×2 层的实体逐项对应，无漏单元或重复；总体积约 6000 mm³，中心/八高斯点 Jacobian 最小约 15.625，最大平移格点误差约 5.33e-15 mm。全部原 GRID/SHELL 与源 Part 卡片保持保护，六个 FACE 的原生网格归属不变，CAD 有界导出哈希不变，外皮关联和全部节点投影通过。
+
+写后对输出 Part 包围框、质量/惯量、属性/材料摘要及唯一 VOLUME 进行独立回读或重算；目标 PSOLID `Num.Elem: 0→48` 按全部新实体数核对，原 PSHELL `Num.Elem=88` 保持。审查发现的全局派生字段遗漏、斜向方向重复归一化摘要漂移和模型预算未预留已修复，并有定向反例。错误纵向种子、陈旧摘要、写后计划分页均拒绝；同 operation_id 再次提交保留原 task/回执，未再次生成实体，来源账本含完整源面→各层实体关系。
+
+保存重开后，GRID、CAD 哈希及工程卡片完全一致；输出 Part 的 `Is Color Active` 由 NO→YES 是单列的原生显示刷新。原严格比较失败记录保留，随后只读回读确认并生成最终报告；未重放 Map，也未放宽生产写入保护。主流程为 27 次 MCP 调用、26 个不同任务，含 3 次预期拒绝和 1 次幂等原回执；显示状态续验另有一次只读任务。
+
+最终 **838 项单元、84 工具模拟、90 文件 staging 哈希**通过。原生 `.bpkg`、用户工作窗口更新、GUI 画布、求解器及完整项目质量未验收。已有实体的逐块增量生成、多模板工业正例、任意曲面/孔和跨 deck 写适配仍待后续开发。真实入口及详细限制见[开发说明](development.md)和[有限六面 CAD Map 契约](reference/structured-meshing.md#有限六面-cad-map)。
+
+## 2026-10-25 只读扫掠候选与工业组件分类
+
+新增只读 `ansa_geometry_sweep_candidates`，当前共 85 MCP、16 结构化工具。显式范围从既有特征接口的 20 FACE 独立扩展为此入口的 100 FACE，仍受 500 CONS、1000 HOT POINT 及 8 MiB 范围导出预算约束。完整原生 CONS 连通组件逐项解释；六面闭域复用现有拓扑及有限导出域验证，返回全部无序端盖方向和相容分段建议。未增加切分或网格生成器，也未放宽 Map 的既有实体门禁。
+
+同版本官方文档确认 `MapBlock` 具备自动 caps/sides 检测能力，但也生成面网格，没有只读参数；`VolumesDetect` 要求已有表面网格。本预筛不替代这些原生能力，后续自动分块应优先按写操作受控封装。纯算法、主线程导出、派生/父来源摘要与缓存分别实现，所有候选保持 `usable_for_mutation=false`。
+
+独立 ANSA 2026.1.0 完成 **54 次不同任务，52 成功、2 次预期陈旧证据拒绝**。单盒产生 1 个有限导出域、3 个端盖方向；同 Part 双盒产生 2 个域、6 个方向，证明不是按 Part 合并成一个块。缺面范围明确拒绝；范围外复制不错误失效原范围证据，随后移动源面使同 epoch 旧证据拒绝。五个完整案例的诊断前后工程快照精确一致，最终工业检查点保存重开一致，旧代次证据拒绝，测试专用实例按身份核验关闭。
+
+工业 i10、i02、i23 分别读取 11/28/42 FACE、29/71/114 CONS，均为单个超出六面模板的组件，全部选定 FACE 在分类清单中解释且明确 unsupported。三份 STEP 哈希保持，未把 token/局部曲率或组件拒绝当作工业可扫掠结论；本轮**没有工业正例或工业自动分块验收**。候选导出域通过仍不证明任意曲面 CAD 内核等价、已有 SOLID 无交叠、块间共形、项目质量或求解器通过。
+
+多方向复用同组件六面证明；单盒导出调用由首次 7 次减至缓存时 1 次，双盒由 13 次减至 1 次。每次缓存仍读取原生拓扑并重新导出整个指定范围。该次单盒内部计时约 145→28 ms、双盒约 368→36 ms，工业拒绝例缓存收益很小或变慢；这不是端到端工业加速百分比。目标长度绑定缓存，未知几何证明的面清单与逐组件状态保持一致；该汇总修正后离线重算五组已捕获原生证据，分类完全相同，没有重放模型写入。
+
+最终 **851 项单元、85 工具 stdio/TCP 模拟、92 文件 staging 哈希**通过，主 reviewer 的 57 项定向测试及离线 I/O 衔接通过。正式源码和本轮本机报告均在 MCP 仓库；业务仓库仍有两份更早的拓扑旧副本及历史证据，未纳入当前运行或发布内容。未提交、推送、安装正式插件，未验收 GUI 画布或求解器。接口与后续边界见[只读扫掠候选](reference/structured-meshing.md#只读扫掠候选)。
+
+## 2026-10-25 原生 Map Block 结果回读与大结果稳定性
+
+本轮先按同版本官方 API，在独立实例经通用 MCP 脚本调查 `MapBlock`，没有把它直接注册为通用写工具。小盒新增 88 SHELL、90 GRID、1 VOLUME、1 PSOLID、1 MAT1；原生体为 Ready to Mesh，端盖/侧面完整。i10 新增 1363 SHELL（1333 CQUAD4、30 CTRIA3）、1348 GRID 及各一个 VOLUME/PSOLID/MAT1，体状态为 Non Mappable，master/slave/round 均为空。两例没有生成 SOLID，原 CAD 导出哈希保持；已有 CONS、FACE、PSHELL 计数及源 Part 汇总卡片发生变化。因此返回 VOLUME 不等于获得可继续扫掠的块，也不构成工业实体网格正例。
+
+i10 原执行包约 2.29 MB，超过 1 MiB TCP 帧限制，调用端出现 unknown；原 ANSA Journal 明确 succeeded，随后身份核验的主线程回读确认实际面网格及 Non Mappable 状态。未重放原写操作，原报告和 task_id 保留。确认结束后保存结果，在新独立会话续验。四项设置及重新导出的完整 `.ansa_mpar` 赋值键/值一致；质量准则/F11 全状态恢复没有由该探针验收。
+
+新增只读 `ansa_mesh_map_block_inspect`，当前 86 MCP、17 结构化工具。它复用原生边界/端盖和宏网格读取，分别报告原生状态、完整分组、FACE 归属、实际 SHELL 连接及 GRID 坐标；分页重新捕获来源。小盒 native_ready 与 i10 native_non_mappable 的公开回读前后完整模型快照哈希一致，旧模型代次证据拒绝。该接口不提供 MapBlock 生成能力或后续写授权。
+
+新执行的通用脚本结果超过 128 KiB 时完整存入现有证据存储，返回有界描述符；1 MiB 协议上限保持不变，小结果格式保持。独立真机完整取回 1000 项约 1.56 MB 的列表与 500000 字符标量，同 operation_id 回执相同，计数证明只执行一次，模型工程指纹保持。主回读流程 38 次调用、37 个不同任务，含一次预期旧代次拒绝和一次幂等重复；随后 3 个已结束任务用于持续性诊断，没有重新网格。
+
+严格保存重开的全卡片指纹比较仍不通过。后续两份已保存检查点再打开的对比中，实体编号、CAD 哈希、GRID 和 perimeters 精确一致，只有 Part 重心/惯量出现约 1e-15 舍入；但该诊断未重现最初的 before 指纹，因此不据此宣布原严格持续性验收通过，不放宽生产卡片保护。原失败报告保留，新增回读和分页功能的通过范围与此限制分开。
+
+主 reviewer 找到并复核修复页列表封装临界值、长键路径，以及完整任务包中双份 JSON Pointer 的预算问题。最终 Pointer 上限 65536；最坏转义、满 192 KiB 页及额外 metadata 的完整约 1000007 字节回包经 send_frame 验证低于 1 MiB。最终 **863 项单元、86 工具模拟、93 文件 staging 哈希**通过。两个验证实例按身份关闭，原用户实例未操作；PID 复用不作为原进程仍在的证据。用户要求保留的业务旧副本及历史材料未改动。
+
+专用 MapBlock 写封装、工业实体正例、已有 SOLID/VOLUME 的增量生成、完整项目质量、GUI 画布和求解器均未由本轮验收；未提交、推送或安装。下一步优先验证新建属性/材料来源、源 Part 派生量的独立重算与完整质量配置恢复，再开放写契约。分页行为见[任务及 API](reference/tasks-api.md)，状态边界见[Map Block 回读](reference/structured-meshing.md#原生-map-block-回读)。
+
+## 2026-10-26 受控 MapBlock 准备与完整配置恢复（受限验收）
+
+新增 `ansa_mesh_map_block_prepare(action="plan"/"apply")`，当前工作源码 **87 MCP、18 结构化工具**。复用同版本官方 `mesh.MapBlock`，首版限单 Part、单源 PSHELL、完整六面有限平面直扫域、NASTRAN 毫米模型；无已有 SHELL/SOLID/VOLUME/CURVE。plan 绑定完整卡片、CAD、种子和当前导出配置；apply 验证备份后只调用一次生成器。返回待填充 Map Block，不是最终 SOLID。
+
+原生自动新建的 MAT1 在非默认源材料探针中仍为默认值，不能当成材料继承。受控工具显式把新 VOLUME 绑定调用者指定的已有 PSOLID，回读生效后仅清理本次新增未使用的 PSOLID/MAT1（`force=False, compress=False`）。完整原实体、未使用材料、属性、CAD 及原节点均保护。源 Part 属性/材料摘要、计数、CONS 分段和六个 FACE 的规则 CQUAD4 格点分别回读。
+
+`meshing_context.py` 在真机读取 **377 个 MeshParams 赋值键、65 行 QualityCriteria、65 个对应 F11 getter 三元组及四项会话设置**。正常生成与主动修改 F11 后抛出异常两条路径均恢复并重新导出一致；默认材料清理、陈旧计划拒绝及幂等亦通过。覆盖声明为全部当前已导出行，不声称枚举未导出或隐藏配置。
+
+真实实施过程保留两项失败记录：首次因同一材料被多个属性引用时摘要名称重复计入而拒绝；修正后又因 FACE 派生重心约 `1e-16 mm` 的舍入变化而被严格比较拒绝。两次先查询原写任务到 failed，再独立回读、保存现场；均未盲重放。材料名称改为按 MID 唯一汇总；微小重心差按数值一致处理，几何面积、边界、法向、卡片及完整 CAD 定义仍精确保护。原失败任务及此前保存重开失败不改写为成功。
+
+修正后从已验证并保存的状态建立独立新用例，经真实 MCP→TCP→ANSA 主线程完成 **16 个独立任务：15 成功、1 陈旧计划预期拒绝**；另一次相同 operation_id 的公开 apply 返回原 task_id。生成 **88 CQUAD4、90 新 GRID、1 Ready to Mesh/Unmeshed Map Block、0 SOLID**，完整规则格点与归属核验通过，provenance stage 为 verified。已有 PSOLID/MAT1 的非默认定义完整保留。保存重开的完整原始模型快照精确相同；没有靠数值归一化消除差异。
+
+`part_aggregates.py` 将 `CalcElementMass(Part)` 作为混合 CAD/FE/未填充体原生汇总一致性依据，不把它当解析或求解器质量证明。持续性比较只允许十项已在前后原生重算的 Mass/COG/惯量作有界比较；所有其余数据保持精确检查，原始快照与差异保留。用户确认约 `1e-16 mm` 的舍入视为一致，后续不为此类差异增加修复工作。
+
+最终 **880 项单元、87 工具 stdio/TCP 模拟、96 文件原生 staging 哈希**通过。主 reviewer 因账户限额未产生审查结果，主 Agent 完成集成审查和实际问题修复，本条不记录为独立 reviewer 通过。隔离实例均在保存后按 PID、启动时间和完整参数核对关闭，用户原窗口未操作；旧业务开发副本与 114 个历史 Python 材料保留。
+
+主用例：`runtime/verification/stage-three-e808a2bf79d04006905adbeb0ac5ad19/corrected-case/map-block-prepare-report.json`。现有块独立回读及严格持续性：同目录上一级 `map-block-existing-followup.json`。归档报告与清单：`runtime/verification/map-block-prepare-delivery-20261026/`。契约见[受控 MapBlock 准备](reference/structured-meshing.md#受控-mapblock-准备)。未覆盖工业整件实体正例、多个已有体的增量生成、项目质量、共形接口、GUI 画布、求解器或安装发布；未提交或推送。下一步在上述已核验的 Map Block 之上补充受控填充与多块共形编排。
+
+## 2026-10-26 已有 MapBlock 填充与 CAD 到实体链路（受限验收）
+
+新增 `ansa_mesh_map_block_fill(action="plan"/"apply")`，当前工作源码 **88 MCP、19 结构化工具**。先查同版本官方 API：`VolumesRemesh` 支持已定义体，参数按位置传递；独立原生探针确认它可直接填充 Type=Map Block，不需重新创建体或猜测 VolumesMeshV 的额外生成器字符串。实现为 `map_block_fill.py`，纯完整卡片差异审计为 `map_block_fill_audit.py`。
+
+首版限定单 Part/单待填充 MapBlock、完整六面有限平面直扫域、最多400个规则 CQUAD4 边界、无已有 SOLID/CURVE 的 NASTRAN 毫米模型。端盖采用原生1/1/4分组，方向、目标、整数层数与均匀格点独立推导验证；已有 PSOLID/已定义 MAT1 正密度。计划绑定完整模型、源面、CAD、种子及配置；备份后复核，生成器只调用一次。失败不自动重试，且先检查原模型上下文才能观察新增实体。
+
+真实 MCP 从合成原始 CAD 经公开 prepare、公开 fill 生成 **48 CHEXA、15 个内部 GRID**，同一 VOLUME ID 保留；原88个边界 SHELL、90个边界 GRID、材料及原测试占位节点精确保护。实体关联节点105个；逐源单元/层映射、端盖原节点ID、正体积与采样雅可比、全部88个自由面的 CAD 壳面片匹配和投影均通过。实体只有一个面连接分量、100个内部共享面。复用377个 MeshParams 键、65行质量准则、65个 F11 三元组及四项设置的完整恢复，provenance 为 verified。
+
+实施中保留一次实际失败：审计未显式提供该已证明单平面块的空接口/空保护圆柱集合，按约定报告 incomplete，尽管实体已经生成。先确认原任务 failed、独立回读并保存现场，再用新隔离实例修正验收；不把未知工业孔壁或接口也当作空集合。第二实例的 fill 任务始终 succeeded，尾项仅继续只读质量及保存验证，没有重放生成器。
+
+主 reviewer 的四项 P2 已修复并经小范围复核无阻塞：新增 GRID 的 CD/PS/SEID 必须完整且默认；模型切换后禁止将新模型实体归属旧操作；RHO=0 在写前拒绝；来源回读失败同步 recovery_required。真机还发现两种 MapBlock plan 已有 validator 分派，但证据层白名单漏做校验；已补齐 prepare/fill 两种 kind，真实旧计划分页均拒绝，并保留历史已成功的错误分页记录。
+
+独立质量报告最初请求 ASPECT、JACOB、SKEW。当前 getter 定义分别为 NASTRAN、ANSA、FLUENT；SKEW 未提供有效有限数值，48个均 unknown，原报告保留 incomplete，未改写为通过。另以明确夹具准则 **ASPECT≤5、JACOB≥0.2、MINL≥4.5、MAXL≤5.5 mm** 读取可用指标：48项全部通过，长宽比约1、雅可比约1、边长约5 mm。该可用指标验证不补足 SKEW，不代表项目质量或求解器验收。
+
+保存重开的完整原始快照精确一致，没有使用数值归一化隐藏差异。最终 **895项单元、88工具 stdio/TCP 模拟、98文件原生 staging 哈希**通过。原始填充结果的规范JSON约83047字节，此为该48单元用例的观测值，不是任意规模性能保证。原生探针、失败现场和最终实例均在保存后按PID/启动时间/完整参数核对关闭；原用户窗口未操作，旧业务副本与114个历史Python材料保留。未安装、提交或推送。
+
+主要记录：`runtime/verification/stage-three-91db3090809b4b2ba9effab033b36912/map-block-fill-report.json`（原成功fill及只读分页验收中断）、`map-block-fill-finish.json`（新鲜性拒绝及原SKEW未知报告）、`map-block-fill-available-quality-finish.json`（可用质量指标及最终保存重开）。归档为 `runtime/verification/map-block-fill-delivery-20261026/`。当前仍不支持已有实体的增量填充、多块共形与少量CPENTA过渡、工业整件自动网格、GUI画布或求解器验收；下一阶段优先接通保留已有实体的多块接口与完整覆盖。
+
+## 2026-10-26 多块增量填充、覆盖与客户端恢复（受限验收）
+
+新增公开 `ansa_mesh_map_blocks_prepare`，扩展 `ansa_mesh_map_block_fill(volume_ids=...)`；当前共 **89项MCP、20项结构化网格工具**。生成继续复用同版本官方 `MapBlock` 和 `VolumesRemesh`，不引入替代网格器。受控矩形多块、完整接口审计、有限域证明和客户端检查点编排已落地；任意工业CAD自动分解不在本轮承诺范围。
+
+| 验收项 | 实际证据 |
+| --- | --- |
+| 原始CAD→切分→多块准备 | 独立ANSA 2026.1.0/NASTRAN毫米模型，公开PlaneCut封装切分后11 FACE/20 CONS/12 HOT POINT；一次公开联合prepare得到2个Ready MapBlock、112 CQUAD4及105个边界GRID，原无关GRID保留 |
+| 增量与合批 | 两组24+24 CHEXA或一次48 CHEXA，旧块完整卡片/节点不变；共享FACE只生成一次，最终24个接口面片完整共用节点 |
+| 原始域完整性 | 原始完整FACE证据和分片完整有限导出域绑定，区间单元覆盖核查通过；此项通过 `ansa_script_execute` 调用正式 `rectangular_coverage` 模块执行，不是另一个已注册公共工具 |
+| FE与配置 | 全部原节点、材料及连接保护，完整外皮/体积/归属核验；网格参数、质量准则与对应F11设置恢复 |
+| 陈旧与幂等 | 第一次填充后旧第二块计划拒绝；相同operation ID返回原task；后端重启后查原任务，再使用当前绑定独立预检，未重放写入 |
+| 明确夹具质量 | 48个实体：ASPECT≤5、JACOB≥0.2、MINL≥4.5、MAXL≤5.5 mm，48 passed、0 failed、0 unknown；历史不可用SKEW报告仍保留unknown |
+| 持续性 | 增量/合批各自保存重开完整原始快照精确一致；两策略的新EID顺序不同，经48个新实体ID双射后其他卡片及连接顺序一致 |
+| 客户端恢复 | 实际丢弃第一次成功apply回执，新建编排客户端后查询原任务，两个apply各执行一次；两个检查点SHA-256、最后质量及检查点重开精确一致 |
+| T2识别与工业诊断 | 原生双块自动识别为2组；i10/i02/i23全选11/28/42 FACE均明确未支持，无准备参数、无网格创建；缓存仍重捕获范围，诊断前后完整快照和原STEP哈希不变 |
+
+主原生记录：`runtime/verification/stage-three-c06fec04496d4c4c89df0655bcee7b85/map-block-batch-report.json`。工业及候选记录为同目录 `rectangular-candidates-report.json`；新证明复用代码的原生prepare及客户端记录为 `map-block-job-report.json` 与 `map-block-job-resume-report.json`。后者仅继续最初客户端绑定参数校验失败前已经成功的prepare，查询原任务并核对当前完整快照后启动此前尚未创建的job，没有重做MapBlock。客户端库要求回执中的完整四字段目标，不能直接传含pid等额外字段的连接状态对象。
+
+效率在同一小型双块模型上实测：有限面域证明36→11次FACE导出，内部约0.9628→0.3151秒，证明和完整快照精确一致；两次增量填充台账阶段约1.0573+1.0678秒，一次合批约1.1266秒，原生填充调用2→1。这些不是完整MCP往返耗时，不推广为工业模型固定加速倍数。记录为 `face-export-reuse-native.json`、`face-export-reuse-benchmark.json` 及 `FE-equivalence-after-new-cell-ID-map.json`。
+
+实施中保留实际失败：切分新内面使CAD Part汇总合理变化、六面分组ID键不匹配、JSON整数键在证据/任务持久化中语义不一致，以及CONS/FACE派生显示量的小舍入。修复均限定到独立原生重算和JSON边界，未弱化实际节点、连接或CAD定义保护。旧结果序列化孤儿任务在严格独立实例/原台账/模型回读核对后如实关闭为failed，随后查原任务并单独推进，不伪造成功也不重放。该开发恢复脚本不属于公共客户端的自动恢复能力。
+
+主reviewer审查了多块范围、共享接口、完整卡片审计、覆盖及缓存；客户端独立审查发现verified落盘时遗漏组内solid_ids，已修复并补“checkpoint前中断”的用例，原复现小范围复核通过。最终 **946项单元、89工具stdio/TCP模拟、103文件原生staging哈希**通过；外部wheel构建审计及新增workflows文件与当前源码一致。最终归档与源码/证据SHA清单在 `runtime/verification/map-block-multi-delivery-20261026/`。
+
+本轮全部自建ANSA实例在保存后按PID、启动时间、完整启动参数及空队列核验关闭；最后PID22076的记录为 `owned-cleanup-receipt.json`。曾使用Computer Use只读观察自建窗口以排查回执问题，没有在用户窗口输入或修改。未完成本轮网格GUI画布专项验收、工业整件实体正例、孔板/O-grid、任意曲面分块、MapBlock CPENTA过渡、其他deck卡片适配或求解器验收。未安装到用户实例、未提交或推送；业务旧副本与114个历史Python材料保留。
+
+## 2026-10-27 孔环源面冻结与原生直扫（受限验收）
+
+按用户建议优先复用原生 MapBlock 面网格、Freeze 与 Extrude。查证2026.1.0官方签名后，在独立实例验证 `mesh.MapBlock`、`base.FreezeElements` 和 `mesh.VolumesExtrude.translate`；未编写替代网格器。GUI Up/Fit to Target 的参数映射未单独验收。当前几何/网格验收不增加跨deck或求解器工程阶段。
+
+`ansa_mesh_sweep` 新增严格布尔 `freeze_source`，默认false且保持旧请求格式。true先备份和复核来源，确认目标SHELL从FROZEN=NO变为YES；完整范围只允许所选冻结字段变化，源节点与连接SHA精确不变，然后才调用Extrude。冻结或回读异常不继续生成实体。冻结在操作后保留。仅扫掠内部模型快照预算增至2 MiB，200源面/500新增实体及1 MiB协议帧上限保持。
+
+| 验收项 | 实际证据 |
+| --- | --- |
+| 合成环带 | 原生48 CQUAD4源面冻结后生成96 CHEXA；受控适配器范围检查、正体积、源面/实体保存重开通过 |
+| 工业局部源面 | i03原始STEP提取显式同轴局部域，内/外半径10/19、长度16 mm；两次明确平面切分后原生MapBlock生成4个Ready块。3 mm目标得到670个全表面SHELL，所选源面110项（100 CQUAD4、10 CTRIA3），140 GRID |
+| 受控工业扫掠 | 110源面冻结后四层生成440 SOLID（400 CHEXA、40 CPENTA）；全部440个源单元/层占位、正体积、源节点复用及范围保护通过 |
+| 实际公共MCP | 独立新运行目录完成9个任务，含打开、源审计/分页、freeze sweep、独立脚本回读、质量及保存重开；全部succeeded。源审计未传目标网格，因此其对应关系仍为incomplete，不冒充目标连接证明 |
+| 多边形源域 | 混合CTRIA3/CQUAD4审计验证身份、嵌入、两条闭合边界、Euler=0及面积守恒；内/外环最大弦误差0.123117/0.101892 mm，均小于声明0.2 mm |
+| 完整外皮和孔洞 | 从源面/独立层映射推导500个预期面片，与实际外皮完全一致；单一原生VOLUME完整归属后显式声明空块间接口。内壁120、外壁160面片的归属及半径通过；内壁最大径向误差约7.65e-7 mm |
+| 明确质量准则 | ASPECT≤5、JACOB≥0.2，440 checked/passed、0 failed、0 unknown；质量结果绑定同一source/mesh SHA及成功保存重开。MINL/MAXL在原生探针返回error，未纳入通过声明 |
+| 持续性 | 源面与实体连接/坐标指纹、SOLID ID和全部110源面FROZEN=YES在保存重开后精确一致；未将此扩大为完整CAD/Part原始卡片指纹一致 |
+
+多边形源域体积13095.336597 mm³与FE总体积一致，解析环柱体积13119.290921 mm³，比例99.817411%。因此已证明该多边形网格域的完整覆盖、内孔保持与选定质量；原始CAD连续域双向覆盖仍为false，底层FE审计保留 `non_adjacent_intersections_unchecked`，不将组合报告当任意曲面无相交证明。
+
+主要公共记录：`runtime/verification/annular-public-6ec02a4f1dbf4bb8b4567e083e229f8d/report.json`，最终模型为同目录 `public-annular-solid.ansa`。独立完整捕获位于 `annular-native-5ff989c1701e46a5af52b083d126709e/report.json`；外皮/孔壁重算结果及输入报告SHA在 `runtime/verification/annular-finite-delivery-20261027/boundary-audit-v3.json`，证据索引为同目录 `evidence-index.json`。几何验证使用正式审计模块；完整捕获通过MCP执行自定义只读脚本，不称为额外已注册的原生MCP检查器。
+
+保留真实失败：直接原始域MapBlock为Mappable with Errors，默认四块仅三块Ready；原生重划返回成功但只有31实体且有空块。2 mm目标产生273源面、1092实体，超出公共上限，不据此放宽门禁；3 mm受限方案通过。首次公共运行因Windows私有目录过长，在备份/原生调用前写台账失败；保留failed任务，改用新短目录独立夹具。另一探针已保存后使用陈旧实体句柄读取ID失败，随后只读重开确认属性，不重放创建。所有写入按原operation/task查询，无结果不明重放。
+
+本轮自建实例按PID、启动时间及完整启动参数核验关闭，用户工作模型未操作。尚未完成原始CAD连续双向覆盖、工业整件自动分块、通用孔板/O-grid及GUI画布验收；按用户范围不开展跨deck或求解器工程验收。未安装、提交或推送。
+
+## 2026-10-28 公开孔环准备闭环与开发范围复盘
+
+受限 `ansa_mesh_annular_source_prepare(action="plan"/"apply")` 已接通已明确四块的局部CAD→原生MapBlock源面。当前90项MCP、21项结构化工具。它不识别孔或自动切块；已存在的WPLANE构造平面保留原定义。随后用既有受控sweep冻结源面并调用原生Extrude，4个准备体保持未填充描述，最终实体归属新生成的单一VOLUME，不冒充4个MapBlock均已填充。
+
+| 验收项 | 本轮实际结果 |
+| --- | --- |
+| 公开链路 | `annular-public-6706a679ee5e4ebfb53048d8952abea7/report.json` 的13个任务全部succeeded，含准备plan/apply、源面独立回读、冻结扫掠、质量与保存重开；pending为空，自建PID42712已核验关闭 |
+| 源面准备 | 28 FACE完整范围、4个Ready未填充块、670个SHELL；选定源面110个（100 CQUAD4、10 CTRIA3）。8个本次自动创建且已证明未使用的PSOLID/MAT1被清理，全局Mesh Parameters、QualityCriteria及F11恢复 |
+| 实际几何投影 | 974个节点/FACE对全部投影通过，最大距离0.000084696 mm；54个CONS共324个点投影通过，最大距离0.000082965 mm，均在本例显式0.2 mm预算内。源环半径/平面数值容差仍为1e-6 mm，二者含义不同 |
+| 局部控制及显示量 | 52条CONS局部长度3 mm，2条约2.4324 mm，允许原生细化；实际perimeter点数、身份和坐标独立核验。FACE/CONS原生细分显示量保留前后值，不当作解析面积、重心、法向或切向量证明；完整CAD导出定义和原节点/卡片继续保护 |
+| 实体与质量 | 110源面冻结后生成440个正体积实体（400 CHEXA、40 CPENTA），全部源单元/层占位、源节点复用和范围检查通过；ASPECT≤5、JACOB≥0.2，440 passed、0 failed、0 unknown |
+| 完整域及持续性 | 独立最终捕获重算500个外皮面片全部一致，内壁120、外壁160，孔洞保持；源面/实体指纹、实体ID及110项冻结状态在保存重开后精确一致 |
+
+最终边界审计为 `runtime/verification/annular-finite-delivery-20261027/public-preparation-boundary-audit.json`，状态 `verified_polygonal_annular_domain`。源SHA仍为 `2d3f193a6dd84559c574f7af2e0b607080bd40d15f5e79528c078c808596c4c2`，新属性绑定下的实体SHA为 `a765cbd439ca1018446b9d395d98a1ed33d15055e67a0b0e15d1488f5bda7a91`。质量与实际保存捕获的文件SHA、来源/实体内容摘要绑定；JSON对象键排序按原生捕获schema恢复后复算摘要，不改坐标、连接或旧任务的指纹规则。完整准备回执按公共描述符摘要核验后留存为同目录 `public-preparation-result.json`，最终模型为公共运行目录的 `public-annular-solid.ansa`。
+
+原始CAD连续双向覆盖、非相邻单元相交专项、通用孔板/O-grid、工业整件自动分块和GUI画布仍未验收；本次通过仅覆盖明确局部多边形网格域与指定质量。最后85项受影响定向回归通过，复用此前979项全量及90工具模拟证据，没有为收尾再跑全量或真机。旧暂存/wheel在后续源码修改前生成，不作为本轮最终发行包；不构建安装新正式包，不提交或推送。
+
+复盘确认检查范围过度扩张：新增准备接口做了11轮隔离真机尝试，10轮停在辅助实体、原生细分显示量或未查证的局部参数假设上；全量单元执行约35秒，主要耗时来自没有集中采集差异，而是逐字段修改后重新启动实例和生成网格。恢复回执的真实缺陷、备份/归属和必要范围保护仍须修复保留；派生显示或未验证扩展不能临时成为额外交付条件。最小验收、集中诊断、通过后停止及重跑条件已写入根目录 `AGENTS.md`。证据索引为同目录 `final-evidence-index.json`，复盘数据为 `development-scope-review-20261028.json`。
+
+## 2026-10-28 已有孔环MapBlock直接填充
+
+`ansa_mesh_map_block_fill` 新增显式 `annular_options` 分支，复用已保存的四块局部源面结果，调用一次同版本原生 `mesh.VolumesRemesh`；默认矩形模式保持原契约，工具仍为90项。受控范围和几何匹配精度见[孔环填充契约](reference/structured-meshing.md#已有孔环-mapblock-直接填充)。
+
+先在独立实例对已有未填充模型做一次原生可行性调用，结果及关闭记录为 `runtime/verification/annular-native-91e4e6acadb14eeb852ca934505eb8b2/report.json`。补充诊断只读打开该次保存的前后模型，集中采集原始卡片、CAD、完整边界、归属和质量，记录为 `runtime/verification/annular-native-8edd1e6dd48b4e9caa348a78b2b92817/fill-evidence.json`；没有重新生成面网格或重放该生成器。
+
+正式公开链路 `tests/integration/annular_map_fill_ansa.py` 在新建ANSA 2026.1.0实例完成10个真实MCP任务：打开已有准备模型、独立回读、计划与证据分页、备份后一次填充、独立回读、质量报告及保存重开。报告为 `runtime/verification/annular-fill-public-3d18c9957f5a4a0684856bc9ecb1854e/report.json`，完整填充回执为同目录 `public-native-fill-result.json`，结果摘要与公共描述符SHA核对一致。
+
+| 验收项 | 实际结果 |
+| --- | --- |
+| 原生填充 | 原四个VOLUME保持，512 CHEXA、98 CPENTA，共610；新增272 GRID，归属完整，原生返回整数1 |
+| 范围与边界 | 原670 SHELL、616边界GRID及CAD/周界保持；完整610自由外皮面片、4组共享FACE接口、单组件、正体积核对通过；全部关联节点到所属FACE最大投影距离约8.47e-5 mm |
+| 配置与来源 | 全局Mesh Parameters、Quality Criteria、F11状态不变；备份与范围回读通过。台账阶段verified，源层映射未证明，`provenance_mapping_complete=false` |
+| 独立质量 | ASPECT≤5、JACOB≥0.2：605 passed、5 failed、0 unknown。ASPECT最大7.87525，JACOB最小0.508395；5个失败均为ASPECT超限 |
+| 保存重开 | `public-annular-map-fill.ansa` 重开后的原面网格、实体内容指纹及实体ID精确一致；独立捕获文件摘要核对一致 |
+| 进程与回归 | 仅本次核验归属的PID10064已关闭，pending为空；59项受影响定向回归通过 |
+
+本阶段接口与持久性验证 `complete=true`，但 `quality_accepted=false`、`acceptance_complete=false`，不能宣布直接填充网格质量全部通过。该结果与已有Freeze→Extrude路线440单元全部通过的结论分别保留。后续质量改善先查原生功能和现有受控修复，保护已有边界及接口，不在本轮追加自动修复或扩大验证。
+
+解析CAD连续双向覆盖、非相邻单元相交、通用工业自动分块及GUI仍未验证。完成本轮最小接口验收后停止；没有再跑全量测试、重建发行包、安装、提交或推送。最后的报告字段和文档整理不触发重复真机验证。
+
+## 2026-10-28 孔环局部质量改善与固定边界限制
+
+复用已保存610实体模型及已有 `ansa_mesh_quality_repair(method="smooth")`，只对GRID879/880的完整12实体闭包执行原生 `SolidSmooth(..., freeze_skin=True)`；每轮及累计位移≤1 mm、最多3轮。新独立实例完成9个公开MCP任务，首轮5个ASPECT失败减为3个，第二轮无进一步改善并精确回滚，保留首轮改善。最大累计位移0.36491644 mm；最终607 passed、3 failed、0 unknown，剩余SOLID1230/1232/1250，JACOB全部通过。没有放宽ASPECT≤5、JACOB≥0.2。
+
+原670个SHELL/616个边界GRID、4组共享接口、CAD、实体连接/归属及全局配置保持；正体积和610个完整自由外皮核对通过。原始全模型卡片均留存，定义摘要仅排除允许移动的GRID坐标及Part质量/惯性等原生派生显示量。保存重开后的网格指纹、定义、边界及配置一致。报告与部分改善模型为 `runtime/verification/annular-repair-public-7811f76b11e94c39971fd36a07a43942/report.json` 和同目录 `public-annular-repaired.ansa`；PID15420经归属复核后已关闭。
+
+同一实例只读诊断显示，固定边界SHELL680（FACE16）ASPECT=5.50769，SHELL549（FACE20）ASPECT=7.39782；CTRIA3 550的直接ASPECT量测返回不可用，未当作零或通过。完整数据为同目录 `boundary-diagnostic.json`。本次内部节点平滑没有达到全部合格；未自动调整原面网格或重复填充。用户随后要求先显示未网格圆环，由用户示范原生划分方法。
+
+## 2026-10-28 显式caps接口与示范圆环填充
+
+当前源码91项MCP、22项结构化工具。新增 `ansa_mesh_map_block_caps(action="plan"/"apply")`，显式指定一个 `volume_id`、`master_face_ids`、`slave_face_ids`，支持复合面组。独立ANSA2026.1.0主线程探针核实 `mesh.DefineCaps(volume, Cap1, Cap2)` 成功返回None；本机官方stub未收录此函数，未把自动MapBlock分组或只读接口当显式写入。
+
+在用户1732面单元示范的独立副本中，公开MCP将V2由外壁/内壁改为轴向FACE25/17，经过备份、一次调用、回读和保存重开。所请求caps及其round余集正确，FE、CAD、冻结状态、其他块和全局配置保持。随后通过另一个新计划恢复用户的径向caps；用户原模型未修改。caps证据为 `runtime/verification/caps-public-4f66a9b2cd89444187f764652bfefa3b/caps-report.json`。
+
+原生MapBlock自动创建的MAT1未定义，第一次公开填充计划正确拒绝。只在副本中为这批材料明确设置本夹具E=210000、NU=0.3、RHO=7.85e-9，再用公开填充入口一次生成 **2430实体：2410 CHEXA、20 CPENTA**。原1732面单元和1680边界GRID、CAD、完整外皮、4组共享接口和正体积审计通过，保存重开后的网格/编号精确保持。限定预算扩为2000边界SHELL、每端400线性SHELL；公开源面审计及准备仍保留默认200单元范围。
+
+旧验证入口把610单元写成固定验收条件，导致本次质量读取被跳过，原主报告complete=false保留。入口现按实际完整有界实体清单核验；仅重开已保存2430实体，调用一次公开质量报告并证明读取前后网格相同，ASPECT≤5、JACOB≥0.2 **2430通过、0失败、0未知**。没有重跑实体生成。补验位于 `runtime/verification/annular-saved-quality-c1749467f7d8489c88caf9e91874add9/report.json`；组合报告为 `runtime/verification/native-mesh-delivery-20261028/report.json`。
+
+7项caps、16项孔环及26项结构化定向检查通过；新增工具同步schema、共享分类、分派、台账、证据及发布源码清单，未构建、安装、提交或发布。初次工具清单不同步、独立启动端口冲突均发生于模型业务任务前，后续已修正并串行；原记录保留。
+
+## 2026-10-28 带孔板原生方法试划
+
+使用独立原生API脚本建立 **60×40×6 mm、中心圆孔半径6 mm** 的单孔板。`FacesNewPlanar`不能直接把本例曲线列表解释为双环面；改为先建矩形面，再以官方 `ConsProjectNormal(..., delete_faces=True)` 开孔，核对底面两个闭合perimeter。沿孔周切8块、Define Map Block初划、显式选择厚度方向caps，最后一次 `VolumesRemesh` 生成 **590实体：470 CHEXA、120 CPENTA**。本例初划已合格，没有追加重划、Freeze或平滑。
+
+完整750外皮面片、8组共享接口、单一连接分量、正体积及CAD投影通过；882原面单元、caps及面归属保持。ASPECT最大 **2.019803**、JACOB最小 **0.807550**，按同一示例阈值全部合格。原生几何卡片/边界及保存重开后的实体指纹保持；重开源/结果后的CAD规范化IGES哈希一致。初次新建状态的IGES导出报错，未据此重复生成网格；从已保存的八块状态继续填充，最终独立重开导出已核对。
+
+此为有限原生脚本方法验证，不是通用带孔板MCP自动划分入口；没有声称原始曲面连续双向覆盖或任意工业几何网格能力。模型与所属ANSA网格画布截图见 `runtime/verification/native-mesh-delivery-20261028/`；实际生成证据为 `annular-native-3eb01447cce14ea3b971fbe74b481808/plate-evidence.json`，只读CAD/画布证据为 `annular-native-81d1e35611374a78817951ed449645cb/readback.json`，均位于 `runtime/verification/` 下。独立实例已按唯一translator和进程身份关闭。
+
+### 用户反馈后的细化与规则映射
+
+原590实体虽通过数值阈值，用户认为网格布局不理想，要求重划并缩小尺寸。保持60×40×6 mm、孔半径6 mm，改为孔周环带＋外围矩形共20块。外围目标约1.5 mm、孔周48段约0.785 mm、厚度4层；Define Map Block初划后统一对边分段，原生Create4SidedMesh重划全部面为四边形，再Freeze、显式厚度方向caps、VolumesRemesh。
+
+生成 **4672个CHEXA、0个CPENTA/CTETRA**，6300个关联GRID、3920个四边形SHELL。完整3072外皮、28组共享接口、正体积、CAD规范化导出保持、面网格与caps保持及保存重开通过；ASPECT最大 **2.143193**、JACOB最小 **0.919226**，既定阈值0失败、0未知。新模型及所属ANSA画布截图位于 `runtime/verification/plate-hole-refined-20261028/`；旧590实体版本保留。
+
+首轮一条名义9 mm边因约1.3e-6 mm几何误差多分一段，导致3个相邻面未映射；从已保存的89个完成面继续，仅修正该边及3面后填充一次。首次捕获遗漏 `integrity.complete` 元数据，成员报告保留incomplete；结合完整原生SOLID/GRID清单、20块归属及保存重开证据补齐捕获声明，再离线核验完整外皮通过，原报告未改写。未为报告收尾重跑生成器或质量，未修改生产源码或追加回归。
+
+实际发现并修正了回执标志：平滑不临时加载准则，完整回读确认原准则不变后应返回 `criteria_restored=true`，包括坐标回滚后准则保持的情况；准则变化或不可读时仍保留恢复要求。旧真机回执不改写，其独立配置指纹已证明不变；新标志由24项定向回归验证，没有为标志修正重跑真机网格操作。未做全量、GUI网格质量、求解器或发行检查。
+
+## 2026-10-28 孔板方法正式固化与工业原件范围核对
+
+成功孔板方法迁入 `src/ansa_mcp_shared/plate_hole.py`、`src/ansa_mcp_bridge/operations/plate_hole_workflow.py` 和客户端 `plate_hole_script`。通过现有 `ansa_script_execute` 调用，仍为91项MCP工具、22项结构化工具；没有新增孔板专用工具名。输入严格限定为已保存的毫米NASTRAN隔离副本、单Part、8个原始FACE、无既有FE/VOLUME、轴对齐中心单孔恒厚矩形板。原生PlaneCut、MapBlock、NumberPerimeters、Create4SidedMesh、DefineCaps、FreezeElements和VolumesRemesh负责实际几何与网格操作；纯计划负责显式参数、预算和整数分段。
+
+| 本轮最小验收 | 实际结果 |
+| --- | --- |
+| 参数与定向回归 | 4项纯参数/脚本测试、8项执行边界测试通过，包含名义9 mm边的端点误差、带孔端面的Euler贡献、严格JSON、原生异常不重放与Part定义保护 |
+| 实际公开MCP | 原始孔板计划绑定、备份、原生切分/面重划/Freeze/caps、一次VolumesRemesh；20块、92 FACE、3920 CQUAD4、4672 CHEXA、6300 GRID |
+| 完整网格 | 3072外皮、28组共享接口、单组件、全正体积；最大CAD投影距离4.05e-8 mm；原面网格、冻结状态、caps和完整原生块归属保持 |
+| 独立原生质量 | ASPECT≤5、JACOB≥0.2；4672全部通过、0失败、0未知；ASPECT最大2.14319303086，JACOB最小0.91922579414 |
+| CAD与定义 | 填充前后整体CAD摘要一致；保存重开按FACE ID逐面比较92项原生IGES D/P摘要全一致；原4项材料/属性完整定义保持，Part定义排除已有明确的原生派生汇总字段 |
+| 配置与持久性 | 恢复全部原Mesh Parameters/Quality Criteria/F11及设置后保存；重开后的完整配置摘要一致，公共model_open与独立gRPC回读网格、编号、冻结状态完全一致；取得实际ANSA画布截图 |
+| 实例与范围 | 同一已核实归属实例PID21268完成实体生成及后续收尾，现已关闭；原件、旧590实体模型、上轮4672实体结果均保留；无全量回归、构建、安装、提交或推送 |
+
+**证据组合边界：** 本轮没有在修正后重放整条生成流程。初次固化的预检接口、严格JSON及长路径问题均发生在切分前；确认原任务终态和完整原始模型不变后继续同一实例。正式生成任务只调用一次VolumesRemesh，原结果保留 `ok=false`，原因是其整体IGES有序摘要在重开后变化。集中诊断证明逐92面摘要一致、质量与完整接口通过，同时发现结果文件在临时尺寸恢复前保存。源码已改为逐面CAD比较、复用既有Part派生字段定义、恢复配置后再保存，并独立核对重开配置。后续公开MCP仅恢复原参数、保存和回读同一网格；复用已通过且网格指纹完全相同的质量/接口证据，没有追加实体生成或原生质量复测。组合交付 `complete=true`、`quality_accepted=true`，不把旧失败回执改写为成功，也不称为修正后整链重新生成验收。
+
+实际生成回执为 `runtime/verification/plate-hole-public-cbb87928a365414aaf83b95813c9e55b/continue-7dace405/report.json`；集中回读为其上级目录下 `saved-readback/`；最终公开MCP及独立重开为 `completed-653a1737/report.json`。可直接使用的模型、截图、参数与组合索引在 `runtime/verification/plate-hole-workflow-delivery-20261028/`。非默认参数仅有纯计划覆盖；任意姿态、多孔、偏心孔、圆角和工业母体自动切块仍未验收。
+
+**后续工业局部域已推进至原件范围核验。** 从真实 `i03o_m3.step` 的独立副本读出66 FACE、187 CONS、123 HOT POINT、无FE/VOLUME。候选原生FACE为8/9/10/24/30/32，通过CONS70/71/91/93/107/109连接母体FACE7/20/26/65；原STEP SHA-256为 `c42862fa6bc1e94a9bb70e43a7dc9901aa5281d7b58de6ee4699494088286008`。前后CAD及实体清单一致，已保存独立ANSA副本和画布。该候选范围尚未闭合，未切分或生成工业网格；不能复用OCC编号或将矩形板O-grid直接套用。范围与下一步母体接口切分目标为 `runtime/verification/industrial-local-scope-20261028/scope.json` 及其README。
+
+## 2026-10-28 原始i03母体保留的端部局部网格
+
+直接使用上述原件的独立ANSA副本，保留整个母体。首个有限范围是左孔座 **X=-48..-45 mm的3 mm外伸段**，孔轴沿X、圆心Y=0/Z=-66，内外半径10/19 mm；不是提取后重新创建的理想圆环。先在X=-45仅切原生FACE8/10/30/32，得到局部闭合6面，原62个非选FACE的逐面CAD摘要保持。再以Y=0切开局部域，得到两个闭合半环单元和12个局部FACE；原61个未参与切分FACE的几何保持。
+
+已有专用切分预检先因原256 KiB整模型快照预算拒绝，未执行写入；随后通过现有公开MCP脚本入口调用原生FacesPlaneCut，保持原失败回执。径向切分后的首次辅助回读错误地把含内部共享面的多块CAD复合体按单一外壳判闭合，报告3面共边并停止在MapBlock之前；根据已保存的完整邻接分别核对两个单元，各边均有两个本单元内相邻面，复用同一切分结果继续，没有重放切分或重新建模。
+
+原生MapBlock一次产生两个Ready体，自动轴向caps已正确，保持master在X=-48、slave在X=-45。NumberPerimeters按每条半周链24段、径向4段、轴向2层协调，Create4SidedMesh一次覆盖全部12面为四边形，Freeze后VolumesRemesh仅调用一次。
+
+| 验收项 | 实际结果 |
+| --- | --- |
+| 实体与面网格 | 384 CHEXA、0 CPENTA/CTETRA，592 CQUAD4、720 GRID，所有实体归属于两个明确VOLUME，局部以外未生成SHELL |
+| 边界与孔壁 | 576完整自由外皮；同一体对的两个共享CAD面合并为一组接口，共16面片；正体积、单组件、原生CAD成员及投影通过，最大节点投影距离约4.30e-14 mm，声明投影/柱面节点容差0.001 mm |
+| 原生质量 | ASPECT≤5、JACOB≥0.2，384全部通过、0失败/未知；ASPECT最大1.73452801666、JACOB最小0.93181866870 |
+| 母体与连接 | 原61个非选FACE逐面IGES D/P摘要保持；CONS70/71/91/93/107/109原端点和母体FACE7/20/26/65邻接保持；91/109处新增局部接口面后的三面共边是CAD分块连接，未删除连接来封口 |
+| 后续接口 | X=-45的FACE68/76保留192个冻结CQUAD4；母体侧仍无实体，本轮未证明该接口另一侧的实体共形 |
+| 保存重开 | 原面网格、冻结状态、caps、完整SOLID/GRID及77面CAD逐项保持；原材料/属性/Part定义、Mesh Parameters、Quality Criteria/F11配置保持；公开model_open和独立gRPC回读通过，实际整体和局部画布已取得 |
+
+用户追加要求后，`structured_native._capture_scope` 默认整模型编码预算从256 KiB调整为16 MiB；`ANSA_MCP_SCOPE_EVIDENCE_MAX_BYTES` 可在ANSA进程配置256 KiB至64 MiB的严格整数字节数，非法值在采集前拒绝。显式专项预算、10000实体范围及1 MiB TCP帧上限保持独立，不截断字段、不传输完整大快照。新增预算测试及现有structured-native定向测试共18项通过；实际ANSA主线程完整捕获417实体/316267字节以及2119实体/1243930字节，MCP只返回摘要，完整证据存文件。
+
+源码新增范围仅为预算配置，工业网格本例通过现有MCP执行原生脚本，尚未新增工业通用编排入口。实际任务和阶段模型在 `runtime/verification/industrial-local-4141bbc041e24866bb34d7f86fb4115f/`，最终报告 `finished-report.json` 为complete/acceptance_complete=true，唯一独立PID36052已确认关闭。组合交付为 `runtime/verification/industrial-local-delivery-20261028/`。全孔座X=-48..-32、母体过渡区和其他65个未网格宏未完成；没有全量回归、重复生成/质量复测、发行构建、安装、提交或推送。
+
+## 2026-10-31 几何与复杂网格源码提交前检查
+
+检查范围为现有几何特征、显式平面切分、CONS分段、源面映射、MapBlock准备/caps/填充、孔环与孔板组合流程，以及必要的任务持久化、来源证据和打包支持。没有将自动识孔、任意工业分块、自动块组返工或其他deck扩展列为本轮验收目标。
+
+审查后修复两处防护问题：孔环准备在备份和原生设置之前检查声明尺寸的分段预算，源面按周向×径向估计并沿用200项上限，全部边界按两端盖、内外壁和共享径向面估计并沿用5000项检查预算；预算进入计划摘要，极小长度、数值溢出和超限均拒绝。估计不是原生实际数量上界，实际回读检查保留。孔板备份调用或备份后预检异常时保守返回 `recovery_required=true`，不因尚未调用网格生成器而声称无副作用。另同步旧工具数量断言及孔环填充公开预算说明。
+
+| 检查 | 本轮结果 |
+| --- | --- |
+| 单元回归 | 修正旧工具数量后1021项通过；最后两处防护修改后运行77项受影响定向回归并全部通过，不重复无关全量 |
+| MCP模拟 | 91项工具stdio/TCP发现、未绑定拒绝、重复客户端竞争、共享后端与异常退出恢复通过；同一原操作未重复执行 |
+| 源码与文档 | 变更Python语法、文档本地链接和差异空白检查通过；几何与复杂网格分别审查，最后两处补丁复核无新增实质问题 |
+| 原生源码暂存 | 最终清单109文件，其中105份桥接/共享源码与当前 `src/` 字节一致，无缺失源码 |
+| 外部wheel | 构建与边界审计通过，54份外部/共享Python源码与当前 `src/` 字节一致；未安装或发布 |
+
+首轮沙箱检查遇到Python路径与Windows临时目录权限问题，后续按仓库规定的源码路径和用户私有运行目录完成验证，没有通过放宽生产目录权限使检查通过。完整摘要为 `runtime/verification/precommit-20261031-review.json`，日志、最终wheel及原生暂存均在同目录对应的 `precommit-20261031-*` 路径下，未纳入Git。
+
+功能提交仅保留正式源码、文档/示例、必要构建维护脚本与可复用回归测试；19个一次性探针、历史补验、专项恢复及离线开发辅助文件保留在本机忽略档案。移出后未保留对这些模块的导入、动态加载或文档入口引用，25个保留集成入口的导入检查和10项相关定向回归通过。正式 `src/` 与单元测试内容未变，复用上述已通过的功能检查和打包证据。
+
+本轮没有启动ANSA或重新生成原生网格。新增修改只涉及生成前预算、异常恢复判断及契约同步，复用此前有限案例的原生生成与保存重开证据，不将离线测试、模拟或打包检查解释为新版原生整链重验、正式 `.bpkg` 安装、工业整件自动划分或求解器验收。

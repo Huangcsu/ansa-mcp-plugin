@@ -1,7 +1,7 @@
 {
-  "date": "2026-10-19",
+  "date": "2026-10-28",
   "legacy_core_count": 79,
-  "current_mcp_tool_count": 69,
+  "current_mcp_tool_count": 91,
   "mapping_status_counts": {
     "accepted": 79,
     "partial": 0,
@@ -264,7 +264,7 @@
       "legacy": "surface_mesh",
       "target": "ansa_mesh_faces + ansa_mesh_surface",
       "access": "只读/写入",
-      "status": "已验收：NASTRAN 单 FACE 完整未网格宏，Tria/1st Order、目标尺寸、参数恢复、SHELL范围回读及幂等；其他类型/多FACE待验收",
+      "status": "已验收：原NASTRAN单FACE Tria长度模式；新增mapped_existing_seeds复用Create4SidedMesh，保留整数CONS种子，i10工业样本两个源面分别32 CQUAD4的格点/归属/原节点精确保护、四项原生质量、幂等及保存重开通过。当前仅四边未网格单FACE宏/毫米NASTRAN，完整体网格与任意复杂源面未验收，见结构化网格契约",
       "source": {
         "file": "src/ansa_mcp_sum/server.py",
         "line": 1484
@@ -574,7 +574,7 @@
       "legacy": "check_intersections",
       "target": "ansa_mesh_intersections",
       "access": "模型只读",
-      "status": "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3，独立卡片/坐标交线核算、混合/单类型/无问题、同组内部与范围外排除、反向组、隐藏、严格拒绝、幂等、保存重开和主窗口；固定相交模式，原生计数与去重实体分开，不修复；其他类型/deck及全模型自检待验收或实现",
+      "status": "已验收：NASTRAN 两组显式 CQUAD4/CTRIA3，独立卡片/坐标交线核算、混合/单类型/无问题、同组内部与范围外排除、反向组、隐藏、严格拒绝、幂等、保存重开和主窗口；新增显式 SOLID CHEXA8/CPENTA6 在独立2026.1.0通过12种原生及typed MCP对照，S25全量候选经有界批次复核；固定相交模式，原生计数与去重实体分开，不解释为相交对数；其他类型/deck及自动全模型自检待验收或实现",
       "source": {
         "file": "src/ansa_mcp_sum/server.py",
         "line": 1691

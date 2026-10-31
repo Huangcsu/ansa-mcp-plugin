@@ -137,6 +137,9 @@ class MainThreadExecutor:
             except Exception as exc:
                 operation_result = result
                 result = {"possible_effects": True, "executor": self.state.identity(), "main_thread": True}
+                diagnostics = getattr(exc, "diagnostics", None)
+                if type(diagnostics) is dict:
+                    result["diagnostics"] = diagnostics
                 if isinstance(operation_result, dict):
                     result["operation_result"] = operation_result
                 try:
@@ -145,7 +148,24 @@ class MainThreadExecutor:
                     result["model_after"] = None
                     result["model_probe_error"] = str(probe_error)
                 error = str(exc)
-            journal.finish(task["task_id"], result=result, error=error)
+            try:
+                journal.finish(task["task_id"], result=result, error=error)
+            except (TypeError, ValueError) as serialization_error:
+                # finish validates JSON before changing the row. A completed
+                # native call must not remain falsely running because a tool
+                # returned a tuple, non-string key, or other invalid value.
+                # Keep disk/SQLite failures outside this fallback: their commit
+                # outcome cannot be guessed, and the original write is never run.
+                message = 'Operation completed but its result could not be serialized: '+str(serialization_error)[:2048]
+                self.state.last_error = message
+                fallback = {'possible_effects': True, 'recovery_required': True,
+                            'error_phase': 'result_serialization', 'native_operation_replayed': False,
+                            'original_result_retained': False, 'main_thread': True,
+                            'executor': task['identity']}
+                if type(result) is dict and type(result.get('model_after')) is dict:
+                    fallback['model_after'] = {k:v for k,v in result['model_after'].items()
+                                              if k in ('epoch','database','detection') and type(v) in (int,str)}
+                journal.finish(task['task_id'], result=fallback, error=message)
         except Exception as exc:
             # An API may already have run. Never claim it was cancelled or retry it.
             self.state.last_error = str(exc)

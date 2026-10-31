@@ -1,4 +1,4 @@
-"""Read-only, explicitly scoped NASTRAN shell intersection checks."""
+"""Read-only, explicitly scoped NASTRAN shell or first-order solid checks."""
 
 from . import inspection, mesh_checks
 
@@ -10,7 +10,7 @@ _MAX_NATIVE_COUNT = (1 << 63) - 1
 _MISSING = object()
 
 
-def _native_result(base, deck, result, first_ids, second_ids):
+def _native_result(base, deck, result, first_ids, second_ids, entity_type="SHELL"):
     if result is None:
         raise RuntimeError(f"{_API} failed and returned None")
     if (type(result) is not dict
@@ -42,17 +42,17 @@ def _native_result(base, deck, result, first_ids, second_ids):
     for entity in raw_intersected:
         if not inspection._is_entity(entity, base):
             raise RuntimeError(f"{_API} returned an ambiguous entity object")
-        reference = inspection._entity_reference(base, deck, entity, expected_type="SHELL")
+        reference = inspection._entity_reference(base, deck, entity, expected_type=entity_type)
         entity_id = reference["id"]
         if entity_id not in allowed_ids:
-            raise RuntimeError(f"{_API} returned SHELL {entity_id} outside the explicit scope")
+            raise RuntimeError(f"{_API} returned {entity_type} {entity_id} outside the explicit scope")
         references_by_id[entity_id] = reference
 
     intersected_ids = sorted(references_by_id)
     first_hit_ids = [entity_id for entity_id in intersected_ids if entity_id in first_id_set]
     second_hit_ids = [entity_id for entity_id in intersected_ids if entity_id in second_id_set]
     if intersected_ids and (not first_hit_ids or not second_hit_ids):
-        raise RuntimeError(f"{_API} did not return intersected SHELLs from both input groups")
+        raise RuntimeError(f"{_API} did not return intersected {entity_type}s from both input groups")
 
     return {
         "check": "intersections",
@@ -74,7 +74,7 @@ def _native_result(base, deck, result, first_ids, second_ids):
         "note": (
             "native_count 是 ANSA 原生 penetrations 计数，尚未核实为相交对数；"
             "native_intersected_list_count 统计原生列表项（包含重复项），"
-            "intersected.count 按 SHELL ID 去重。"
+            f"intersected.count 按 {entity_type} ID 去重；只检查两组之间，不检查组内。"
         ),
     }
 
@@ -87,7 +87,10 @@ def execute(state, tool, params):
     if tool != "mesh_intersections":
         raise ValueError(f"unsupported intersections operation: {tool!r}")
 
-    params = inspection._params(params, ("deck", "first_ids", "second_ids"))
+    params = inspection._params(params, ("deck", "first_ids", "second_ids"), ("entity_type",))
+    entity_type = params.get("entity_type", "SHELL")
+    if type(entity_type) is not str or entity_type not in {"SHELL", "SOLID"}:
+        raise ValueError("entity_type must be SHELL or SOLID")
     deck_value = params["deck"]
     if type(deck_value) is not int or deck_value <= 0:
         raise ValueError("deck must be a positive integer")
@@ -122,27 +125,45 @@ def execute(state, tool, params):
     first_shells, first_references = [], []
     second_shells, second_references = [], []
     for entity_id in first_ids:
-        shell, reference = inspection._get_entity(base, deck, "SHELL", entity_id)
+        shell, reference = inspection._get_entity(base, deck, entity_type, entity_id)
         if not inspection._is_entity(shell, base):
-            raise RuntimeError("ANSA returned an ambiguous SHELL entity object")
+            raise RuntimeError(f"ANSA returned an ambiguous {entity_type} entity object")
         first_shells.append(shell)
         first_references.append(reference)
     for entity_id in second_ids:
-        shell, reference = inspection._get_entity(base, deck, "SHELL", entity_id)
+        shell, reference = inspection._get_entity(base, deck, entity_type, entity_id)
         if not inspection._is_entity(shell, base):
-            raise RuntimeError("ANSA returned an ambiguous SHELL entity object")
+            raise RuntimeError(f"ANSA returned an ambiguous {entity_type} entity object")
         second_shells.append(shell)
         second_references.append(reference)
 
-    mesh_checks._connection_context(
-        base,
-        deck,
-        first_shells + second_shells,
-        first_references + second_references,
-        check_name="CheckPenetration2Sets",
-    )
+    if entity_type == "SHELL":
+        mesh_checks._connection_context(
+            base, deck, first_shells + second_shells,
+            first_references + second_references, check_name="CheckPenetration2Sets",
+        )
+    else:
+        # Reuse the bounded, strict CHEXA8/CPENTA6 card and basic-coordinate
+        # GRID reader. Never reinterpret shell connectivity or PSHELL thickness.
+        from .structured_native import capture_mesh
+        snapshot = capture_mesh(base, constants, deck, first_ids + second_ids, collect_ownership=False)
+        rows = {row["id"]: row for row in snapshot["elements"]}
+        for solid in first_shells + second_shells:
+            count = len(rows[solid._id]["nodes"])
+            midside = [name for name in solid.card_fields(deck)
+                       if name.startswith("G") and name[1:].isdigit() and int(name[1:]) > count]
+            if midside:
+                values = base.GetEntityCardValues(deck, solid, midside)
+                if (type(values) is not dict or any(name not in values for name in midside)
+                        or any(type(values[name]) is bool or values[name] not in (None, "", 0)
+                               for name in midside)):
+                    raise ValueError("mesh_intersections supports only first-order CHEXA8/CPENTA6")
     result = check_intersections(first_shells, second_shells, 1, 0.0, 0)
-    return _native_result(base, deck, result, first_ids, second_ids)
+    value = _native_result(base, deck, result, first_ids, second_ids, entity_type)
+    if entity_type == "SOLID":
+        value["scope"]["entity_type"] = entity_type
+        value["supported_element_types"] = ["CHEXA8", "CPENTA6"]
+    return value
 
 
 __all__ = ["execute"]

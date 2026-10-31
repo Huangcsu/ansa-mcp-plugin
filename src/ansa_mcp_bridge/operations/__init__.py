@@ -203,6 +203,18 @@ def execute(state, tool, params):
     if tool in {"quality_report", "quality_page", "quality_locate", "quality_repair"}:
         from . import quality_workflow
         return quality_workflow.execute(state, tool, params)
+    if tool in {"mesh_interface_audit", "mesh_block_plan", "mesh_source_audit", "mesh_seed_plan", "mesh_sweep_prepare",
+                "geometry_partition_plan", "geometry_partition_apply", "mesh_sweep",
+                "mesh_provenance", "mesh_evidence_page", "geometry_features", "geometry_sweep_candidates",
+                "geometry_boundary_prepare", "mesh_seed_read", "mesh_seed_apply",
+                "mesh_cad_map_plan", "mesh_cad_map_apply", "mesh_map_block_inspect",
+                "mesh_map_block_plan", "mesh_map_block_apply",
+                "mesh_map_block_fill_plan", "mesh_map_block_fill_apply",
+                "mesh_map_block_caps_plan", "mesh_map_block_caps_apply",
+                "mesh_map_blocks_plan", "mesh_map_blocks_apply",
+                "mesh_annular_source_plan", "mesh_annular_source_apply"}:
+        from . import structured_meshing
+        return structured_meshing.execute(state, tool, params)
     if tool == "benchmark_run":
         from . import benchmark
         return benchmark.execute(state, tool, params)

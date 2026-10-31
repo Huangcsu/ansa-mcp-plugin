@@ -89,6 +89,12 @@ key 为 1–120 字符；文本和序列化 JSON 值最多 4000 字符；严格 
 
 脚本先执行顶层代码，再按名称查找并同步、零实参调用一次入口。脚本命名空间中的 `__name__` 为 `__ansa_mcp_task__`。有 `RESULT` 时优先使用；没有入口且没有 `RESULT` 为失败；入口返回 `None` 是合法的 JSON `null`。异步函数、生成器和返回值中的 awaitable/生成器会被拒绝。stdout/stderr 最多保留 65536 字符并标记 `stdout_truncated`。
 
+脚本执行包按 UTF-8 JSON 字节数计，超过 128 KiB 时在所属私有会话完整存档，返回 `result_paged=true` 和 `result` 描述符。小结果的返回格式保持不变。调用方必须先检查该标志；不要把描述符当作原始 RESULT。通过 `ansa_mesh_evidence_page` 读取同一 report_id：`section="/result"` 对应原始 RESULT，`/result/rows` 等 JSON Pointer 可直接读取嵌套数组；`stdout`、`stdout_truncated`、`preflight` 位于同一存档的顶层。外层 stdout 为空不代表原脚本没有输出，原始标志和文本应从存档读取。
+
+单个超大字符串按 16384 字符切片，页中 `paging_unit="string_chunks"`，`rows` 含 start/end/text，按返回顺序连接 text 恢复；offset/next_offset 以切片条数为单位。普通字段名最多 128 字符，JSON Pointer 最多 65536 字符；该上限计入任务参数与结果中两份路径及最坏 JSON 转义。单页仍保留 192 KiB 预算，存档保留 64 MiB 上限。较大的对象行须继续定位到嵌套字段。字符串是否分块按包含页列表封装的 JSON 字节预算判断，避免临界值存档后无法读取。
+
+分页只读取已产生的观察结果，不会再次执行脚本；重复 operation_id 仍返回原任务及回执。证据带所属实例、会话、deck 和模型代次，不授予后续写权限，也不自动证明脚本执行之后的当前几何仍与历史结果相同。允许切换模型的脚本在存档前刷新模型身份，避免描述符绑定旧代次。此修复不改写历史超大 Journal 终态，也不会自动重放旧 unknown 任务。
+
 入口不存在、参数不匹配或函数异常都可能发生在顶层副作用之后；错误文本包含“effects may exist”。默认不允许更换模型；失败或超时后查询原 `task_id/operation_id` 并独立回读。
 
 ## ANSA API 查询
