@@ -282,6 +282,10 @@ def execute(state, tool, params):
         from . import cons_seed, cad_map
         from .geometry_features import validate_report
         def validate_evidence(kind, result):
+            if kind == "mesh_scope_read":
+                from ansa import mesh
+                from . import mesh_scope
+                return mesh_scope.validate_report(state, base, mesh, constants, deck, result)
             if kind == "mesh_map_blocks_plan":
                 from ansa import mesh
                 from . import map_block_assembly_prepare

@@ -16,7 +16,7 @@ class RecoverableBackendTests(unittest.IsolatedAsyncioTestCase):
         with patch('ansa_mcp_plugin.backend.recoverable.Service', side_effect=[BackendBusyError('occupied'), backend]) as factory:
             service = RecoverableService('runtime')
             server = create_server(service)
-            self.assertEqual(len(await server.list_tools()), 91)
+            self.assertEqual(len(await server.list_tools()), 93)
             with patch('ansa_mcp_plugin.backend.recoverable.time.monotonic', return_value=service._retry_at-0.1):
                 blocked = await server.call_tool('ansa_connection_status', {})
             self.assertEqual(blocked.structuredContent['error']['code'], 'BACKEND_BUSY')

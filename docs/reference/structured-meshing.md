@@ -31,7 +31,7 @@
 | ansa_mesh_cad_map | 六面 CAD Map 计划 / 受控实体生成 | plan 验证有限导出域、整数种子、相容的六面规则 CQUAD4 及独立空输出 Part；apply 重新核验计划，先备份，再调用原生 VolumesMap，独立回读 GRID、SHELL、SOLID、VOLUME、输出 Part 和 CAD 归属。首版仅限 NASTRAN 毫米制，模型不得已有 SOLID/VOLUME。 |
 | ansa_mesh_seed_plan | 只读种子规划 | 显式边长、目标长度及圆弧半径/弦误差；协调共享边等分组和倍数，输出整数约束；不自动读取或写入 CAD 边分段。 |
 | ansa_mesh_seed_read | 只读原生 CONS 分段快照 | 显式 1–20 个唯一 FACE、1–32 个唯一 CONS；返回卡片分段、HOT POINT 端点、FACE 邻接和来源/分段哈希。`points` 与 `point_count` 为 `null`，`expected_point_count` 仅由卡片推算；读取、分页和写前预检都不收集 CONS 的 GRID。 |
-| ansa_mesh_seed_apply | 首次分段时备份后写入明确 CONS 分段数 | 使用同一 FACE/CONS 范围的分段哈希和绝对新建备份路径；assignments 为 1–32 个唯一 CONS，每项 `segments` 为严格整数 1–10000，且 `Σ(segments+1)≤10000`。按相同段数分组调用原生 `NumberPerimeters`，写后核验点、投影、CAD 哈希、非目标 FE 和最终边数。目标 CONS 已实例化内部 GRID 且请求改变分段数时拒绝；当前不提供已有 perimeter 内点的重新分段契约。 |
+| ansa_mesh_seed_apply | 首次分段或显式周界编辑 | 旧`assignments`保持原始CAD首次分段与已有内点拒绝契约；新`edit`支持已有内点的数量、定长和分布对齐，绑定分段及关联范围两个新鲜指纹。两种参数互斥，已有面网格须先显式处理；详见[已有边界重新离散](perimeter-edit.md)。 |
 | ansa_geometry_features | 只读显式 CAD 特征读取 | 最多 20 个 FACE、50 个 CURVE；FACE 使用原生 CONS/HOT POINT 邻接检查闭环，`SurfaceInfo` 报告局部曲率；显式 CURVE 的 IGES 100/110 及严格线性 112 子集可用于 seed 建议，先与原生长度交叉核验。 |
 | ansa_geometry_boundary_prepare | 写入受控辅助曲线 | FACE 范围最多 20、CONS 最多 32；要求当前 FACE-only 特征指纹、已存在且为空的独立辅助 Part、新绝对备份路径。逐条调用 ConsToCurves 并比较返回实体和实际新增实体；不证明原 CONS 解析等价。 |
 | ansa_mesh_sweep_prepare | 只读多块预检和合批 | 最多32个已就绪块、合计200个源SHELL；一次联合读取；共享GRID的块须同次扫掠，参数不兼容则blocked；输出已有mesh_sweep可复用的组参数。 |
@@ -317,7 +317,7 @@ CONS 卡片长度可能为离散近似值，不将其冒充解析弧长。导入
 
 允许的目标 CONS 派生字段仅为卡片点数及起止向量；目标 CONS 真正邻接 FACE 的面积/中心和这些 FACE 所属 Part 的显示质量、面积、COG 可随原生细分显示更新。额外传入但未被目标 CONS 邻接的 `face_ids` 不获得 Part 派生字段豁免。bounds 类显示派生值另有受限例外，见下节；其他实体定义、归属和 FE 仍受保护。
 
-`ansa_mesh_seed_apply` 当前是“原始 CAD 首次分段”的受限入口，不承诺对已有 perimeter 内点重新分段。已有内点只可作为冻结对象保存；本次新建且 perimeter-owned 的 virtual ref 才可在后续原生写回中按目标 CONS 的允许范围更新。即使拒绝发生在 `NumberPerimeters` 前，备份后虚拟点物化也可能已经发生，调用方仍须检查原任务、备份、`new_virtual_point_ids` 和 `possible_effects`，不能把该拒绝解释为模型完全未变化。
+`ansa_mesh_seed_apply`的旧`assignments`模式仍是“原始CAD首次分段”的受限入口：已有内点只可作为冻结对象保存，本次新建且perimeter-owned的virtual ref才可按目标CONS允许范围更新。需要已有内点重新分段时使用独立声明的[`edit`模式](perimeter-edit.md)，不放宽旧门禁。即使拒绝发生在`NumberPerimeters`前，备份后虚拟点物化也可能已经发生，调用方仍须检查原任务、备份、`new_virtual_point_ids`和`possible_effects`。
 
 ### 结果边界
 

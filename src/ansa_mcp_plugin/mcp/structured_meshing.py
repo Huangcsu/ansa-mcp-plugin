@@ -5,7 +5,7 @@ import math
 from typing import Annotated, Any, Literal
 
 from mcp.types import CallToolResult
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from .schemas import ExpectedModel, ExpectedTarget, ToolResult, _forbid_extra_arguments
 
@@ -101,6 +101,84 @@ ConsSeedAssignments = Annotated[
     list[ConsSeedAssignment],
     Field(min_length=1, max_length=32),
     AfterValidator(_unique_cons_assignments),
+]
+
+
+class SeedCountAssignment(StrictModel):
+    cons_id: EntityId
+    count: FeatureSegments
+
+
+class SeedAlignTarget(StrictModel):
+    cons_id: EntityId
+    start_hot_point_id: EntityId
+
+
+def _unique_seed_count_assignments(values):
+    cons_ids = [assignment.cons_id for assignment in values]
+    if len(cons_ids) != len(set(cons_ids)):
+        raise ValueError("assignments must not contain duplicate cons_id values")
+    return values
+
+
+def _unique_seed_align_targets(values):
+    cons_ids = [target.cons_id for target in values]
+    if len(cons_ids) != len(set(cons_ids)):
+        raise ValueError("targets must not contain duplicate cons_id values")
+    return values
+
+
+SeedCountAssignments = Annotated[
+    list[SeedCountAssignment],
+    Field(min_length=1, max_length=32),
+    AfterValidator(_unique_seed_count_assignments),
+]
+SeedAlignTargets = Annotated[
+    list[SeedAlignTarget],
+    Field(min_length=1, max_length=31),
+    AfterValidator(_unique_seed_align_targets),
+]
+
+
+class NumberSeedEdit(StrictModel):
+    action: Literal["number"]
+    expected_scope_sha256: Digest
+    count_type: Literal["edges", "nodes"]
+    assignments: SeedCountAssignments
+
+    @model_validator(mode="after")
+    def _nodes_require_two_points(self):
+        if self.count_type == "nodes" and any(
+            assignment.count < 2 for assignment in self.assignments
+        ):
+            raise ValueError("node counts must be at least 2")
+        return self
+
+
+class LengthSeedEdit(StrictModel):
+    action: Literal["length"]
+    expected_scope_sha256: Digest
+    cons_ids: SeedConsIds
+    target_length: Positive
+
+
+class AlignSeedEdit(StrictModel):
+    action: Literal["align"]
+    expected_scope_sha256: Digest
+    source_cons_id: EntityId
+    source_start_hot_point_id: EntityId
+    targets: SeedAlignTargets
+
+    @model_validator(mode="after")
+    def _source_not_targeted(self):
+        if any(target.cons_id == self.source_cons_id for target in self.targets):
+            raise ValueError("source_cons_id must not appear in targets")
+        return self
+
+
+SeedEdit = Annotated[
+    NumberSeedEdit | LengthSeedEdit | AlignSeedEdit,
+    Field(discriminator="action"),
 ]
 
 
@@ -641,15 +719,27 @@ def register(server, submit):
     def ansa_mesh_seed_apply(
         operation_id: OperationId, expected_target: ExpectedTarget,
         expected_model: ExpectedModel, deck: Deck,
-        face_ids: SeedFaceIds, assignments: ConsSeedAssignments,
+        face_ids: SeedFaceIds,
         expected_seed_snapshot_sha256: Digest, backup_path: BackupPath,
+        assignments: ConsSeedAssignments | None = None,
+        edit: SeedEdit | None = None,
         ttl_seconds: TTL = 300,
     ) -> Annotated[CallToolResult, ToolResult]:
-        """备份后应用明确 CONS 分段并核验 FACE/CONS 快照；失败可能需要恢复检查。"""
-        return submit("mesh_seed_apply", {
+        """备份后应用 CONS 分段编辑并核验 FACE/CONS 快照；失败可能需要恢复检查。"""
+        if (assignments is None) == (edit is None):
+            raise ValueError("exactly one of assignments or edit must be provided")
+        if assignments is not None:
+            return submit("mesh_seed_apply", {
+                "deck": deck,
+                "face_ids": face_ids,
+                "assignments": [assignment.model_dump() for assignment in assignments],
+                "expected_seed_snapshot_sha256": expected_seed_snapshot_sha256,
+                "backup_path": backup_path,
+            }, operation_id, expected_target, expected_model, ttl_seconds)
+        return submit("mesh_seed_edit", {
             "deck": deck,
             "face_ids": face_ids,
-            "assignments": [assignment.model_dump() for assignment in assignments],
+            "edit": edit.model_dump(),
             "expected_seed_snapshot_sha256": expected_seed_snapshot_sha256,
             "backup_path": backup_path,
         }, operation_id, expected_target, expected_model, ttl_seconds)

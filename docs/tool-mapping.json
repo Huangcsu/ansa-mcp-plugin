@@ -1,7 +1,7 @@
 {
-  "date": "2026-10-28",
+  "date": "2026-10-31",
   "legacy_core_count": 79,
-  "current_mcp_tool_count": 91,
+  "current_mcp_tool_count": 93,
   "mapping_status_counts": {
     "accepted": 79,
     "partial": 0,
@@ -264,7 +264,7 @@
       "legacy": "surface_mesh",
       "target": "ansa_mesh_faces + ansa_mesh_surface",
       "access": "只读/写入",
-      "status": "已验收：原NASTRAN单FACE Tria长度模式；新增mapped_existing_seeds复用Create4SidedMesh，保留整数CONS种子，i10工业样本两个源面分别32 CQUAD4的格点/归属/原节点精确保护、四项原生质量、幂等及保存重开通过。当前仅四边未网格单FACE宏/毫米NASTRAN，完整体网格与任意复杂源面未验收，见结构化网格契约",
+      "status": "已验收：原NASTRAN单FACE Tria长度模式；mapped_existing_seeds保留整数CONS种子，i10两个源面各32 CQUAD4的格点/归属/原节点保护、质量、幂等及保存重开通过。remesh_existing在毫米NASTRAN相邻单FACE Macro夹具中验证FREE Quad/Mixed/Tria及mapped Quad、共享边/邻面FE/配置保护与保存重开；连接或INCLUDE模型、VOLUME返工和任意复杂源面不支持，详见surface-remesh契约",
       "source": {
         "file": "src/ansa_mcp_sum/server.py",
         "line": 1484
@@ -664,7 +664,7 @@
       "legacy": "mesh_shells",
       "target": "ansa_mesh_surface",
       "access": "写入",
-      "status": "已验收（限定范围）：NASTRAN 单个显式未网格 FACE 所属完整宏；Tria/1st Order、absolute 目标长度（已验收值 2）、44 个 CTRIA3、参数恢复和独立回读通过。多 FACE/宏、其他网格参数/类型及已有 SHELL 重划仍未验收；旧空 entity_ids 的全可见模式不纳入当前入口",
+      "status": "已验收（限定范围）：原长度模式为NASTRAN单个显式未网格FACE完整宏、Tria/1st Order、尺寸2及44 CTRIA3。已有SHELL重划由remesh_existing提供，FREE显式quad/mixed/tria或mapped quad，需完整Macro条件、双指纹与新备份；相邻双Macro夹具及保护/持久性通过。多目标Macro、任意复杂源面和其他deck未验收；旧空entity_ids全可见模式不纳入入口",
       "source": {
         "file": "src/ansa_mcp_sum/server.py",
         "line": 1751

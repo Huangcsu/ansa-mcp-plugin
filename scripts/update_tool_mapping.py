@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MAPPING_DATE = "2026-10-28"
-CURRENT_MCP_TOOL_COUNT = 91
+MAPPING_DATE = "2026-10-31"
+CURRENT_MCP_TOOL_COUNT = 93
 
 MAPPING = {
     "ping": ("ansa_connection_status", "只读", "已验收"),
@@ -32,7 +32,7 @@ MAPPING = {
     "restore_model": ("ansa_model_open", "换模", "已验收：.ansa 默认备份及独立回读"),
     "save_model_as_ws": ("ansa_model_save", "文件写入", "已验收；路径不再限定旧工作区"),
     "check_mesh_quality": ("ansa_model_inspect: mesh_quality", "只读", "已验收：NASTRAN 选定 FACE 只读质量报告，不自动修复；SHELL/PSHELL及其他质量场景待验收"),
-    "surface_mesh": ("ansa_mesh_faces + ansa_mesh_surface", "只读/写入", "已验收：原NASTRAN单FACE Tria长度模式；新增mapped_existing_seeds复用Create4SidedMesh，保留整数CONS种子，i10工业样本两个源面分别32 CQUAD4的格点/归属/原节点精确保护、四项原生质量、幂等及保存重开通过。当前仅四边未网格单FACE宏/毫米NASTRAN，完整体网格与任意复杂源面未验收，见结构化网格契约"),
+    "surface_mesh": ("ansa_mesh_faces + ansa_mesh_surface", "只读/写入", "已验收：原NASTRAN单FACE Tria长度模式；mapped_existing_seeds保留整数CONS种子，i10两个源面各32 CQUAD4的格点/归属/原节点保护、质量、幂等及保存重开通过。remesh_existing在毫米NASTRAN相邻单FACE Macro夹具中验证FREE Quad/Mixed/Tria及mapped Quad、共享边/邻面FE/配置保护与保存重开；连接或INCLUDE模型、VOLUME返工和任意复杂源面不支持，详见surface-remesh契约"),
     "export_solver_deck": ("ansa_model_export", "文件写入", "已验收：NASTRAN/ABAQUS/LSDYNA 单文件导出、独立内容及 SHA-256 回读"),
     "batch_benchmark_test": ("ansa_benchmark_run", "写入/换模/文件", "已验收（限定范围）：当前 NASTRAN 的 .ansa/.step/.stp 文件集，按大小/路径排序、严格最多10项及1000扫描条目，输入SHA保留；新备份实际重开核对、逐case计数/最大面积/最高中心Z排名、私有JSON/CSV与真实SHA、严格拒绝/原回执和后端恢复六组真机通过。成功结束实际打开备份；Open失败/身份未知停止，不自动恢复，保留备份及实际状态；验收的额外显式model_open恢复另行记录。未规范化新模型的默认Part计数差异仍严格拒绝；不是FPS/网格性能测试，不含其他格式/deck或画布"),
     "read_last_log": ("ansa_log_read", "后端读取/附件写入", "已验收：当前私有运行目录最新持久result/error及已有stdout、无正文不回退、最近200模型任务审计投影、严格1-65536字符正文预览、完整SHA256私有JSON附件/防覆盖/重启复用；五组真实MCP/SQLite与已有ANSA八对象结果读取通过，46原任务记录语义未变；不执行ANSA或读取任意路径，不冒充全局控制审计或恢复未持久输出"),
@@ -72,7 +72,7 @@ MAPPING = {
     "check_sharp_edges": ("ansa_mesh_check: sharp_edges", "模型只读", "已验收：NASTRAN 显式 CQUAD4/CTRIA3，共边连接卡片/坐标独立法向核算、80/120角度阈值、混合与三角子集、隐藏单元、范围外排除、报告叶统计、严格拒绝、幂等、保存重开及主窗口补验；固定原生枚举0/0、保留检查历史，不修复；其他deck、凸边/混合边、高阶/非平面/三重边及其他模式待验收"),
     "check_rigid_dependencies": ("ansa_rigid_dependencies", "模型只读", "已验收：NASTRAN 显式 RBE2，GN/CM/全部GM及GRID连接闭包核验、故障/干净/分离自由度/多从节点与单张子集、隐藏、严格拒绝、幂等和保存重开6项核心通过；修复后5个范围回归、原任务查询/所属主窗口及独立回读续验通过，原报告和文件指纹保留；固定NastranDependency工厂、保留历史、不修复，叶问题数与去重RBE2/GRID分开；其他类型/deck/复杂依赖及修复未完成"),
     "calc_mesh_quality": ("ansa_model_inspect: mesh_quality", "只读", "已验收：NASTRAN FACE 固定只读检查报告；其他类型及完整统计待验收"),
-    "mesh_shells": ("ansa_mesh_surface", "写入", "已验收（限定范围）：NASTRAN 单个显式未网格 FACE 所属完整宏；Tria/1st Order、absolute 目标长度（已验收值 2）、44 个 CTRIA3、参数恢复和独立回读通过。多 FACE/宏、其他网格参数/类型及已有 SHELL 重划仍未验收；旧空 entity_ids 的全可见模式不纳入当前入口"),
+    "mesh_shells": ("ansa_mesh_surface", "写入", "已验收（限定范围）：原长度模式为NASTRAN单个显式未网格FACE完整宏、Tria/1st Order、尺寸2及44 CTRIA3。已有SHELL重划由remesh_existing提供，FREE显式quad/mixed/tria或mapped quad，需完整Macro条件、双指纹与新备份；相邻双Macro夹具及保护/持久性通过。多目标Macro、任意复杂源面和其他deck未验收；旧空entity_ids全可见模式不纳入入口"),
     "mesh_volume": ("ansa_mesh_volume", "写入", "已验收（限定范围）：NASTRAN 单个已有未网格 VOLUME，六个 CQUAD4/八角轴对齐封闭盒体、既有 PSOLID/已定义 MAT1，先验证新 .ansa 备份，再单次 TETRA RAPID；真实输出六个 PYRAMID 和一个内部 GRID，边界/完整 FE 与节点卡/属性材料定义、拓扑闭合和体积独立核对，六组真机通过，含实际备份恢复、保存重开及后端原回执。API 名称不表示纯四面体，内部节点不要求几何中心；不创建 VOLUME，不含复杂几何、其他 deck 或画布验收"),
     "set_shell_mesh_params": ("ansa_mesh_settings；ansa_mesh_surface 临时设置", "只读/设置写入", "已验收：会话内 absolute 尺寸、类型与阶次，完整当前值前置条件、备份回读、幂等、后端重启及 GUI；不写用户默认配置、不自动生成网格"),
     "delete_mesh": ("ansa_mesh_delete", "写入", "已验收：NASTRAN 指定 SHELL 前置字段、精确删除/幂等、其他 SHELL及节点/几何保留；其他类型待验收"),

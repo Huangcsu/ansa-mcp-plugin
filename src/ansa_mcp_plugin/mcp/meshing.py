@@ -15,6 +15,7 @@ ExpectedFields = Annotated[dict[str, Any], Field(min_length=1)]
 TargetLength = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 SettingValue = Annotated[str, Field(strict=True, min_length=1, max_length=128)]
 AbsoluteLength = Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)]
+Deck = Annotated[int, Field(strict=True)]
 
 
 class FaceMeshCondition(BaseModel):
@@ -83,6 +84,29 @@ class SurfaceSeedScope(BaseModel):
         return self
 
 
+class SurfaceRemeshOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    algorithm: Literal["FREE", "mapped"]
+    element_type: Literal["quad", "mixed", "tria"]
+    element_order: Literal["1st Order"]
+    boundary_policy: Literal["preserve"]
+    target_length: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    expected_scope_sha256: Annotated[
+        str, Field(pattern=r"^[0-9a-f]{64}$")
+    ]
+    expected_seed_snapshot_sha256: Annotated[
+        str, Field(pattern=r"^[0-9a-f]{64}$")
+    ]
+    backup_path: Annotated[str, Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def require_mapped_quad(self):
+        if self.algorithm == "mapped" and self.element_type != "quad":
+            raise ValueError("mapped remesh requires element_type='quad'")
+        return self
+
+
 def register(server, original_submit):
     def submit(tool, params, operation_id, target, model, ttl):
         params = {key: value for key, value in params.items()
@@ -113,11 +137,12 @@ def register(server, original_submit):
                           expected_model: ExpectedModel, faces: FaceConditions,
                           target_length: TargetLength | None = None,
                           element_type: Literal["tria", "quad"] = "tria",
-                          method: Literal["length", "mapped_existing_seeds"] = "length",
+                          method: Literal["length", "mapped_existing_seeds", "remesh_existing"] = "length",
                           seed_scope: SurfaceSeedScope | None = None,
-                          deck: int | None = None,
+                          remesh: SurfaceRemeshOptions | None = None,
+                          deck: Deck | None = None,
                           ttl_seconds: TTL = 300) -> Annotated[CallToolResult, ToolResult]:
-        """Mesh only unmeshed FACE entities across their complete macro scope, restoring temporary parameters afterward.
+        """Mesh or remesh explicit complete FACE macros and restore temporary parameters afterward.
 
         NASTRAN keeps the triangular default. ABAQUS quad applies target_length
         to the explicitly scoped CONS and verifies FACE derived counts, real
@@ -129,7 +154,71 @@ def register(server, original_submit):
         seeds, and invokes native Create4SidedMesh with backup and CAD/boundary
         protection. It does not create a volume mesh or cover arbitrary complex
         faces.
+
+        remesh_existing replaces existing mesh in 1..4 single-FACE NASTRAN mm
+        macros. Explicit FREE (quad/mixed/tria) or mapped (quad) preserves native
+        perimeters and protects outside FE/engineering references. It requires
+        complete FACE conditions, fresh relationship/seed hashes and a new backup.
+        Omit outer element_type/target_length/seed_scope; select the actual output
+        type and target_length in the complete remesh option object. First-order
+        planar meshes and straight open CONS only. Models containing connections
+        or INCLUDE and VOLUME rework are unsupported in this first adapter.
         """
+        if method == "remesh_existing":
+            if remesh is None:
+                return reject_surface(
+                    "remesh_existing requires remesh",
+                    operation_id,
+                    expected_target,
+                    expected_model,
+                )
+            if type(deck) is not int or deck <= 0:
+                return reject_surface(
+                    "remesh_existing requires a positive integer deck",
+                    operation_id,
+                    expected_target,
+                    expected_model,
+                )
+            if target_length is not None:
+                return reject_surface(
+                    "remesh_existing does not accept target_length",
+                    operation_id,
+                    expected_target,
+                    expected_model,
+                )
+            if seed_scope is not None:
+                return reject_surface(
+                    "remesh_existing does not accept seed_scope",
+                    operation_id,
+                    expected_target,
+                    expected_model,
+                )
+            if element_type != "tria":
+                return reject_surface(
+                    "remesh_existing requires outer element_type='tria'",
+                    operation_id,
+                    expected_target,
+                    expected_model,
+                )
+            if remesh.algorithm == "mapped" and remesh.element_type != "quad":
+                return reject_surface(
+                    "mapped remesh requires element_type='quad'",
+                    operation_id,
+                    expected_target,
+                    expected_model,
+                )
+            return submit("mesh_surface_remesh", {
+                "deck": deck,
+                "faces": [face.model_dump(mode="json") for face in faces],
+                "remesh": remesh.model_dump(),
+            }, operation_id, expected_target, expected_model, ttl_seconds)
+        if remesh is not None:
+            return reject_surface(
+                f"{method} method does not accept remesh",
+                operation_id,
+                expected_target,
+                expected_model,
+            )
         if method == "length":
             if target_length is None:
                 return reject_surface(

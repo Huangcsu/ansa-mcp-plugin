@@ -140,9 +140,18 @@ def execute(state, tool, params):
     if tool in {"part_create", "set_members", "set_add"}:
         from . import structures
         return structures.execute(state, tool, params)
+    if tool == "mesh_surface_remesh":
+        from . import surface_remesh
+        return surface_remesh.execute(state, tool, params)
     if tool in {"mesh_faces", "mesh_surface", "mesh_delete"}:
         from . import meshing
         return meshing.execute(state, tool, params)
+    if tool in {"mesh_scope_read", "mesh_freeze"}:
+        from . import mesh_scope
+        return mesh_scope.execute(state, tool, params)
+    if tool == "mesh_seed_edit":
+        from . import perimeter_edit
+        return perimeter_edit.execute(state, tool, params)
     if tool in {"mesh_settings_read", "mesh_settings_update"}:
         from . import mesh_settings
         return mesh_settings.execute(state, tool, params)

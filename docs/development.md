@@ -1,5 +1,7 @@
 # 开发说明
 
+已有面网格重划由`surface_remesh.py`薄封装原生`RemeshShells/Create4SidedMesh`，经`ansa_mesh_surface(method="remesh_existing")`调用。`surface_remesh_audit.py`只验证实际平面FE及周界拓扑；范围读取、备份、节点定义保护、完整配置恢复和证据分页复用已有组件。回归为`test_surface_remesh`、`test_surface_remesh_schema`及`test_surface_remesh_audit`，独立真机入口为`tests/integration/surface_remesh_ansa.py`；参数、预算及失败处理见[重划契约](reference/surface-remesh.md)。
+
 开发环境使用 Windows 和 64 位 CPython 3.12。普通源码、文档和单元检查不需要启动 ANSA；真实 API 验证需要已授权的 ANSA 2026.1.0 安装。
 
 ## 几何前处理第一步：检查对称性
@@ -13,6 +15,10 @@
 确认几何对称且任务允许时，优先采用“完整备份 → 明确保留侧与对称面 → 删除另一半 → 完成并验证半模型 → 镜像 → 验证对称面连接、单元方向、重复及保存重开”的流程。材料、连接和已知载荷/约束另行判断；几何网格可镜像不等于可用半模型求解。未确认时保留完整几何，不擅自删半。本要求不新增自动识别或自动删半工具，也不放宽现有范围和备份保护。
 
 ## 原生能力优先
+
+关联范围与独立冻结入口见[工具契约](reference/mesh-scope.md)。`operations/mesh_scope.py`组合原生Macro、CONS、FE和Volume读取，复用卡片、目标绑定、备份、任务及分页机制。独立2026.1探针确认：`FacesFreezeUnFreeze`修改Macro代表FACE标志，CONS原始`Frozen`不随之改变；共享边的有效保护单独按原生归属和标志推导，不复制成CONS卡片写入。异常时先逐目标读回，再尝试完整关系扫描，不能让一个关系API故障抹掉已知状态。
+
+定向入口为`test_mesh_scope/test_mesh_scope_schema`；独立真机回归`tests/integration/mesh_scope_ansa.py`使用仓库合成矩形及明确FE，先准备原生语义证据，再经MCP验证读写与保存重开，不依赖i03。一次性启动诊断、字段探针与失败续跑脚本保存在忽略的`runtime/`，不加入正式功能提交。
 
 用户2026-10-26明确的开发范围：几何和网格核心按求解器无关方式完善；不新增跨deck专项验证或求解器工程验收阶段。必要deck实体/卡片读写差异作为底层适配细节，仍须正确读写。网格能力按几何保持、覆盖完整、接口共形和单元质量验收。
 

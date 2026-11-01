@@ -28,7 +28,7 @@ async def client(home):
     async with stdio_client(params) as (reader, writer):
         async with ClientSession(reader, writer, read_timeout_seconds=timedelta(seconds=30)) as session:
             await session.initialize()
-            assert len((await session.list_tools()).tools) == 91
+            assert len((await session.list_tools()).tools) == 93
             yield session
 
 
@@ -129,7 +129,7 @@ async def check(home):
                 assert after_crash['active_target'] is None
                 await terminal(third, task_id, 'succeeded')
                 assert len(bridge.state.executions) == 1
-                print(json.dumps({'ok': True, 'tools': 91, 'same_backend': True,
+                print(json.dumps({'ok': True, 'tools': 93, 'same_backend': True,
                     'duplicate_executions': 0, 'client_exit_preserves_binding': True,
                     'backend_restart_requires_binding': True, 'history_retained': True,
                     'abrupt_exit_recovered': True}))

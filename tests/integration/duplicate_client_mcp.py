@@ -27,7 +27,7 @@ async def check(runtime_home):
         async with stdio_client(params) as (reader, writer):
             async with ClientSession(reader, writer, read_timeout_seconds=timedelta(seconds=20)) as session:
                 await session.initialize()
-                assert len((await session.list_tools()).tools) == 91
+                assert len((await session.list_tools()).tools) == 93
                 busy = await session.call_tool('ansa_connection_status', {})
                 assert busy.isError, busy
                 assert busy.structuredContent['error']['code'] == 'BACKEND_BUSY', busy
@@ -43,7 +43,7 @@ async def check(runtime_home):
                 assert ready.structuredContent['data']['active_target'] is None
                 assert ready.structuredContent['data']['instances'] == []
                 assert ready.structuredContent['data']['tasks'] == []
-                print(json.dumps({'ok': True, 'tools': 91, 'busy_initialize': True,
+                print(json.dumps({'ok': True, 'tools': 93, 'busy_initialize': True,
                     'same_session_recovered': True, 'unbound': True}))
     finally:
         owner.close()

@@ -161,6 +161,8 @@ def create_server(service):
     register_organization(server, submit)
     from .mcp.meshing import register as register_meshing
     register_meshing(server, submit)
+    from .mcp.mesh_scope import register as register_mesh_scope
+    register_mesh_scope(server, submit)
     from .mcp.geometry import register as register_geometry
     register_geometry(server, submit)
     from .mcp.geometry_delete import register as register_geometry_delete

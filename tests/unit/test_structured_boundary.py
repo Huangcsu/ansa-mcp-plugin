@@ -134,7 +134,7 @@ class NativeBoundaryTests(unittest.TestCase):
                 boundary.normalize_request({**request, **change})
         server = create_server(SimpleNamespace())
         tools = asyncio.run(server.list_tools())
-        self.assertEqual(len(tools), 91)
+        self.assertEqual(len(tools), 93)
         model = server._tool_manager.get_tool("ansa_mesh_interface_audit").fn_metadata.arg_model
         args = {"operation_id": "cad", "expected_target": {"backend_id": "b", "instance_id": "i", "session_id": "s", "generation": 1},
                 "expected_model": {"epoch": 1}, "deck": 1, "entity_ids": [1], "cad_boundary": request}

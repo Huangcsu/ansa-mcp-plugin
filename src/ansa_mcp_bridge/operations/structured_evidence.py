@@ -111,7 +111,7 @@ def read_page(state, deck, report_id, section, offset=0, limit=100, *, freshness
     if hashlib.sha256(_encoded(result)).hexdigest() != envelope.get("sha256"):
         raise ValueError("structured mesh evidence checksum mismatch")
     if envelope.get("kind") in {"mesh_seed_read", "mesh_cad_map_plan", "geometry_sweep_candidates", "mesh_map_block_inspect",
-                                "mesh_map_block_plan", "mesh_map_block_fill_plan", "mesh_map_blocks_plan"}:
+                                "mesh_map_block_plan", "mesh_map_block_fill_plan", "mesh_map_blocks_plan", "mesh_scope_read"}:
         if freshness_validator is None:
             raise ValueError("structured evidence requires a native freshness check")
         freshness_validator(envelope["kind"], result)

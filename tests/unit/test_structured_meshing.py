@@ -307,7 +307,7 @@ class StructuredMeshingTests(unittest.TestCase):
         tools = asyncio.run(server.list_tools())
         self.assertTrue(NEW_TOOLS <= {item.name for item in tools})
         self.assertEqual(len(NEW_TOOLS), 21)
-        self.assertEqual(len(tools), 91)
+        self.assertEqual(len(tools), 93)
         for name in NEW_TOOLS - {"ansa_mesh_cad_map", "ansa_mesh_map_block_prepare", "ansa_mesh_map_block_fill", "ansa_mesh_map_blocks_prepare", "ansa_mesh_annular_source_prepare"}:
             self.assertEqual(writes_model(name.removeprefix("ansa_")),
                              name in {"ansa_geometry_partition_apply", "ansa_mesh_sweep",

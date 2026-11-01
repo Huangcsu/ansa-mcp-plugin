@@ -1,6 +1,6 @@
 # MCP 工具参考
 
-当前工作源码注册 91 个 MCP 工具。结构化网格、几何特征、受控 CONS 辅助曲线转换、原始 CONS 分段设置、有限六面 CAD Map、孔环源面准备及 MapBlock caps 设置的验收范围见[验收记录](acceptance.md)，尚未完成发行集成。工具的实际输入与输出 schema 由服务返回；下表提供能力入口，具体范围见对应参考。
+当前工作源码注册 93 个 MCP 工具。结构化网格、几何特征、受控 CONS 辅助曲线转换、原始 CONS 分段设置、有限六面 CAD Map、孔环源面准备及 MapBlock caps 设置的验收范围见[验收记录](acceptance.md)，尚未完成发行集成。工具的实际输入与输出 schema 由服务返回；下表提供能力入口，具体范围见对应参考。
 
 ## 当前入口
 
@@ -17,7 +17,7 @@
 | 连接（4） | `ansa_connection_list`、`ansa_connection_create`、`ansa_connection_check`、`ansa_connection_apply` |
 | 元素类型（1） | `ansa_element_change_type` |
 | Part/SET（3） | `ansa_part_create`、`ansa_set_members`、`ansa_set_add` |
-| 网格（7） | `ansa_mesh_faces`、`ansa_mesh_surface`、`ansa_mesh_delete`、`ansa_mesh_settings`、`ansa_mesh_volume`、`ansa_mesh_hex_map`、`ansa_mesh_workflow` |
+| 网格（9） | `ansa_mesh_scope_read`、`ansa_mesh_freeze`、`ansa_mesh_faces`、`ansa_mesh_surface`、`ansa_mesh_delete`、`ansa_mesh_settings`、`ansa_mesh_volume`、`ansa_mesh_hex_map`、`ansa_mesh_workflow` |
 | 结构化网格（22） | `ansa_mesh_interface_audit`、`ansa_mesh_block_plan`、`ansa_mesh_source_audit`、`ansa_geometry_partition_plan`、`ansa_geometry_partition_apply`、`ansa_mesh_sweep`、`ansa_mesh_provenance`、`ansa_mesh_evidence_page`、`ansa_mesh_seed_plan`、`ansa_mesh_sweep_prepare`、`ansa_geometry_features`、`ansa_geometry_boundary_prepare`、`ansa_mesh_seed_read`、`ansa_mesh_seed_apply`、`ansa_mesh_cad_map`、`ansa_geometry_sweep_candidates`、`ansa_mesh_map_block_inspect`、`ansa_mesh_map_block_prepare`、`ansa_mesh_map_blocks_prepare`、`ansa_mesh_map_block_fill`、`ansa_mesh_map_block_caps`、`ansa_mesh_annular_source_prepare` |
 | 机构（4） | `ansa_kinematics_body_create`、`ansa_kinematics_joint_create`、`ansa_kinematics_config_create`、`ansa_kinematics_inspect` |
 | 接触（1） | `ansa_contact_inspect` |
@@ -27,6 +27,12 @@
 | 脚本与 API（3） | `ansa_script_validate`、`ansa_script_execute`、`ansa_api_reference` |
 
 `ansa_model_inspect` 的 `action` 合并几何统计、FACE 属性、实体度量、ABAQUS 质量/表面成员、几何/网格检查及显示操作。不同 action 的支持 deck 与参数独立验证。
+
+`ansa_mesh_scope_read`与`ansa_mesh_freeze`提供[关联范围回读及独立冻结/解冻](reference/mesh-scope.md)：区分FE冻结与FACE/Macro及共享CONS锁定，使用新鲜指纹、备份和独立状态回读。
+
+`ansa_mesh_seed_apply`的可选`edit`提供[已有边界重新分段、定长和分布对齐](reference/perimeter-edit.md)，保留旧首次分段模式；已有面网格须先显式处理。
+
+`ansa_mesh_surface(method="remesh_existing")`提供[已有面网格重划](reference/surface-remesh.md)：完整单FACE Macro范围、显式FREE或mapped及单元类型，保护周界、邻面FE和工程引用，并恢复全局配置。
 
 ## 使用契约
 

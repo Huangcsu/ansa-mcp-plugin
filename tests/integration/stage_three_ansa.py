@@ -59,6 +59,8 @@ EXPECTED_TOOLS = frozenset({
     "ansa_model_save_current",
     "ansa_part_create",
     "ansa_mesh_faces",
+    "ansa_mesh_scope_read",
+    "ansa_mesh_freeze",
     "ansa_mesh_surface",
     "ansa_mesh_delete",
     "ansa_mesh_settings",
