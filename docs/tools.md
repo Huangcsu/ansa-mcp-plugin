@@ -83,4 +83,4 @@
 | [任务、脚本及 API](reference/tasks-api.md) | 状态、幂等、取消、恢复、日志、记忆和脚本 |
 | [验证范围](acceptance.md) | 当前环境、既有证据和未验证范围 |
 
-旧 79 项是迁移功能口径，当前 91 项是工作源码注册接口口径；数字不同且不代表一一对应。历史入口对应保留在[迁移映射](reference/legacy-mapping.md)和机器可读 [tool-mapping.json](tool-mapping.json)，不作为当前完整 schema。
+旧 79 项是迁移功能口径，当前 93 项是工作源码注册接口口径；数字不同且不代表一一对应。历史入口对应保留在[迁移映射](reference/legacy-mapping.md)和机器可读 [tool-mapping.json](tool-mapping.json)，不作为当前完整 schema。
