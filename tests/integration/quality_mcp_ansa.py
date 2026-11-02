@@ -64,9 +64,8 @@ def remote_oracle(pid, arguments, params, image_path=None, saved_path=None):
 
 
 async def verify(run_dir, fixtures, output, info, identity):
-    import stage_one_ansa as one
-    import stage_two_ansa as two
     import stage_three_ansa as stage
+    one, two = stage._import_runtime_helpers()
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
     from ansa_mcp_shared.operations import model_write_allowed
@@ -213,10 +212,12 @@ def main():
         raise ValueError("acceptance run and synthetic fixtures must stay in the owned verification directory")
     info = json.loads((run / "launch_instructions.json").read_text(encoding="utf-8"))
     identity = json.loads(args.identity.read_text(encoding="utf-8"))
+    from ansa_mcp_shared.identity import same_process_alive
+    if not same_process_alive(identity.get("pid"), identity.get("process_start")):
+        raise RuntimeError("owned process exited or PID was reused")
     import grpc
-    import stage_one_ansa as one
-    import stage_two_ansa as two
     import stage_three_ansa as stage
+    one, two = stage._import_runtime_helpers()
     stage._bounded_grpc(grpc, one.DeadlineInterceptor)
     basic = two.rpc(info["port"], one.remote_basic)
     stage._verify_program_arguments(basic, Path(info["translator"]), info["port"])

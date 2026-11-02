@@ -56,9 +56,10 @@ def _write_test_wheel(directory: Path, *, extra_files=(), version="0.1.3", requi
 
 class ReleaseBuildTests(unittest.TestCase):
     def test_default_output_directory_uses_versioned_release_path(self):
+        config = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         self.assertEqual(
             release_build.DEFAULT_OUTPUT_DIR,
-            PROJECT_ROOT / "dist" / "v0.1.3",
+            PROJECT_ROOT / "dist" / f"v{config['project']['version']}",
         )
 
     def test_project_declares_pep639_license_and_author_metadata(self):

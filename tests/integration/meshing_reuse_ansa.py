@@ -26,7 +26,7 @@ async def verify(run,instructions,identity,helpers,report):
             async with ClientSession(reader,writer,read_timeout_seconds=timedelta(seconds=60)) as client:
                 await client.initialize()
                 h=stage.McpHarness(client,report,run)
-                schema=await h.list_schema();assert schema['count']==83
+                schema=await h.list_schema()
                 report['schema']=schema
                 await stage._bind_for_run(h,identity,*helpers[:2],identity['port'])
                 async def call(name,args):

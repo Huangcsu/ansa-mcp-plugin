@@ -249,8 +249,8 @@ async def _first_group(client, home):
     status = await _unbound(client, home)
     listed = await client.list_tools()
     names = {tool.name for tool in listed.tools}
-    assert len(listed.tools) == len(names) == 58
-    assert names == set(EXPECTED_TOOLS) | {"ansa_log_read"}
+    assert len(listed.tools) == len(EXPECTED_TOOLS)
+    assert names == EXPECTED_TOOLS
     schema = next(tool.inputSchema for tool in listed.tools if tool.name == "ansa_log_read")
     assert schema["additionalProperties"] is False
     assert set(schema["properties"]) == {"max_chars"}

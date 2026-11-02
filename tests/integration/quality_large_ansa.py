@@ -60,7 +60,8 @@ def remote_evidence(pid, arguments):
 
 async def verify(run, fixtures, identity, info, output):
     import grpc
-    import stage_one_ansa as one, stage_two_ansa as two, stage_three_ansa as stage
+    import stage_three_ansa as stage
+    one, two = stage._import_runtime_helpers()
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
     stage._initialize_runtime_home(Path(info["runtime_home"]))
@@ -124,8 +125,12 @@ def main():
         raise ValueError("large acceptance must use an owned verification directory")
     identity = json.loads((run / "identity.json").read_text(encoding="utf-8"))
     info = json.loads((run / "launch_instructions.json").read_text(encoding="utf-8"))
+    from ansa_mcp_shared.identity import same_process_alive
+    if not same_process_alive(identity.get("pid"), identity.get("process_start")):
+        raise RuntimeError("owned large process exited or PID was reused")
     import grpc
-    import stage_one_ansa as one, stage_two_ansa as two, stage_three_ansa as stage
+    import stage_three_ansa as stage
+    one, two = stage._import_runtime_helpers()
     original = grpc.insecure_channel
     def bounded(target, options=None, **kwargs):
         return grpc.intercept_channel(original(target, options=[*(options or []), ("grpc.enable_http_proxy", 0)], **kwargs), one.DeadlineInterceptor(90))

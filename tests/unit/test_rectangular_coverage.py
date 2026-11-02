@@ -2,7 +2,7 @@ import copy
 import unittest
 
 from ansa_mcp_bridge.operations import map_block_batch as batch, rectangular_coverage as coverage
-from test_map_block_batch import assembly
+from tests.unit.test_map_block_batch import assembly
 
 
 def geometry(w):

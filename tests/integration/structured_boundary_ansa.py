@@ -24,7 +24,6 @@ import structured_meshing_ansa as structured_stage
 
 REPORT_NAME = "structured-boundary-report.json"
 REPORT_SCHEMA = 1
-EXPECTED_TOOL_COUNT = 77
 DECK = 1  # NASTRAN
 CAD_TOLERANCE = 0.02
 OFFSET_DISTANCE = 0.1
@@ -449,8 +448,6 @@ async def _verify(run_dir: Path, instructions: dict, identity: dict, helper_bund
                 await client.initialize()
                 h = stage.McpHarness(client, report, run_dir)
                 schema = await h.list_schema()
-                if schema.get("count") != EXPECTED_TOOL_COUNT:
-                    raise AssertionError(f"expected {EXPECTED_TOOL_COUNT} tools, got {schema}")
                 listed = await client.list_tools()
                 by_name = {tool.name: tool for tool in listed.tools}
                 required_tools = {

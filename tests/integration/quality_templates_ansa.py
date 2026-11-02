@@ -243,7 +243,8 @@ def main():
     identity = json.loads(args.identity.read_text(encoding="utf-8"))
     args.run_dir.mkdir(parents=True,exist_ok=False)
     import grpc
-    import stage_one_ansa as one, stage_two_ansa as two, stage_three_ansa as stage
+    import stage_three_ansa as stage
+    one, two = stage._import_runtime_helpers()
     stage._bounded_grpc(grpc,one.DeadlineInterceptor)
     basic = two.rpc(args.port,one.remote_basic)
     if any(basic[k] != identity[k] for k in ("pid","program_args")) or not basic["main_thread"]:

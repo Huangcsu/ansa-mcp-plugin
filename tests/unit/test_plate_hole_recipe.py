@@ -38,7 +38,7 @@ class PlateHoleRecipeTests(unittest.TestCase):
                 {"hole_radius":10.},{"target_length":1.},{"thickness_layers":100},{"extra":1}):
             with self.subTest(change=change),self.assertRaises(ValueError):build_plan({**params(),**change})
 
-    def test_fixed_mcp_scripts_do_not_execute_and_apply_requires_model_plan(self):
+    def test_generated_scripts_are_parseable_and_apply_requires_model_plan(self):
         ast.parse(plate_hole_script('plan',params()))
         root=Path.cwd()
         code=plate_hole_script('apply',params(),backup_path=str(root/'before.ansa'),

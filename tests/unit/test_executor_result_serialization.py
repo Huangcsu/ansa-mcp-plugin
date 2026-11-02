@@ -1,5 +1,4 @@
 """A bad operation return must not strand a completed native call as running."""
-from pathlib import Path
 import tempfile
 import threading
 from types import SimpleNamespace
@@ -8,13 +7,12 @@ from unittest.mock import Mock,patch
 
 from ansa_mcp_bridge.executor import MainThreadExecutor
 from ansa_mcp_bridge.journal import Journal,JournalPersistenceError
-from test_journal import IDENTITY,make_task
+from tests.unit.test_journal import IDENTITY,make_task
 
 
 class ExecutorResultSerializationTests(unittest.TestCase):
     def run_case(self,bad_result,persistence_failure=False):
-        root=Path(__file__).resolve().parents[2]/'runtime'/'unit-test-temp';root.mkdir(exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=root) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             journal=Journal(directory,IDENTITY)
             try:
                 task=make_task();task['tool']='mesh_map_blocks_apply';journal.submit(task)

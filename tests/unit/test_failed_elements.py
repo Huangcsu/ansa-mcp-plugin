@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from ansa_mcp_bridge.operations import failed_elements
 from ansa_mcp_bridge.operations.inspection import CapabilityUnavailableError
-from test_mesh_checks import FakeBase, FakeCheck, FakeCheckAPI, FakeReport, FakeState
+from tests.unit.test_mesh_checks import FakeBase, FakeCheck, FakeCheckAPI, FakeReport, FakeState
 
 
 class FakeQualityCheck(FakeCheck):

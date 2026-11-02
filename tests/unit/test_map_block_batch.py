@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 from ansa_mcp_bridge.operations import map_block_batch as batch, map_block_fill as fill
 from ansa_mcp_bridge.operations.cad_sweep_topology import plan_translation
 from ansa_mcp_plugin.__main__ import create_server
-from test_cad_sweep_candidates import _rehash
+from tests.unit.test_cad_sweep_candidates import _rehash
 
 
 def assembly(*boxes):

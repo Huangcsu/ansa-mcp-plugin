@@ -54,7 +54,7 @@ async def verify(installation, report_path):
                             raise AssertionError("安装环境工具表不符")
                         if not all(tool.inputSchema and tool.outputSchema for tool in listed.tools):
                             raise AssertionError("安装环境 schema 不完整")
-                        report["cases"].append({"name": "installed_stdio_and_69_schemas", "ok": True, "count": len(listed.tools)})
+                        report["cases"].append({"name": "installed_stdio_and_complete_schemas", "ok": True, "count": len(listed.tools)})
                         result = await client.call_tool("ansa_connection_status", {})
                         value = result.structuredContent
                         if result.isError or value["ok"] is not True:

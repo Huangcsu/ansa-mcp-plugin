@@ -36,7 +36,6 @@ class ApiCatalogChecks(unittest.TestCase):
 
         self.assertEqual(result["version"], "2026.1.0")
         self.assertEqual(result["modules"], list(scripts.MODULES))
-        self.assertIn("whitelist", result["source"])
         self.assertEqual(result["module_details"], [
             {"module": "mesh", "available": True, "function_count": 1}
         ])

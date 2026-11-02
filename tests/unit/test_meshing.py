@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from ansa_mcp_bridge.journal import Journal
 from ansa_mcp_bridge.operations import meshing
-from test_entity_catalog import FakeBase, FakeState
+from tests.unit.test_entity_catalog import FakeBase, FakeState
 
 
 class MeshBase(FakeBase):

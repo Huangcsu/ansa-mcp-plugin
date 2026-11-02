@@ -335,6 +335,9 @@ def main():
             import grpc
             previous = json.loads((run / "files-report.json").read_text(encoding="utf-8"))
             identity = previous["identity"]
+            from ansa_mcp_shared.identity import same_process_alive
+            if not same_process_alive(identity.get("pid"), identity.get("process_start")):
+                raise RuntimeError("补验目标进程已退出或 PID 已复用")
             one, two = stage._import_runtime_helpers()
             original = stage._bounded_grpc(grpc, one.DeadlineInterceptor)
             helpers = (one, two, original)

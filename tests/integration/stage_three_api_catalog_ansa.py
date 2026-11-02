@@ -48,7 +48,7 @@ def remote_catalog_oracle(expected_pid, expected_arguments):
     if (os.getpid() != expected_pid or threading.current_thread() is not threading.main_thread()
             or list(session.ProgramArguments()) != expected_arguments):
         raise RuntimeError("Owned process identity changed before catalog oracle")
-    names = ("base", "mesh", "session", "constants", "connections", "cad", "morph", "guitk", "utils", "batchmesh")
+    names = ("base", "mesh", "session", "constants", "connections", "cad", "morph", "guitk", "utils", "batchmesh", "kinetics")
     modules = {}
     for name in names:
         try:
@@ -95,6 +95,7 @@ async def verify(instructions, identity, helpers, run_dir, report, path):
                 assert modules["version"] == oracle["version"]
                 assert modules["modules"] == list(MODULES)
                 rows = modules["module_details"]
+                assert {row["module"] for row in rows} == set(oracle["modules"]) == set(MODULES), "API module scopes differ"
                 assert [r["module"] for r in rows] == sorted(MODULES)
                 for row in rows:
                     actual = oracle["modules"][row["module"]]

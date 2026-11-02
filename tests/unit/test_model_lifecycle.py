@@ -41,7 +41,7 @@ class ModelLifecycleChecks(unittest.TestCase):
         self.patch.stop()
         self.temp.cleanup()
 
-    def test_initial_empty_model_is_guarded_without_creating_entities(self):
+    def test_initial_model_metadata_is_stable_across_reads(self):
         first = self.state.probe()["model"]
         self.assertTrue(first["write_enabled"])
         self.assertEqual("retained_model_lifetime", first["detection"])

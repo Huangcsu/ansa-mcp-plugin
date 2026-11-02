@@ -34,7 +34,7 @@ def _snapshot(rows):
 class MapBlockAssemblyPrepareTests(unittest.TestCase):
     def test_planar_face_derived_area_and_bounds_roundoff_are_recomputed(self):
         import copy,math
-        from test_cad_sweep_topology import _cube_witness
+        from tests.unit.test_cad_sweep_topology import _cube_witness
         w=_cube_witness();corners=[r['position'] for r in w['vertices'] if r['id'] in (101,102,103,104)]
         bounds=[min(p[k] for p in corners) for k in range(3)]+[max(p[k] for p in corners) for k in range(3)]
         before={'entity':{'type':'FACE','id':11},'geometry':{'area':6.,'bounds':bounds,'normal':[0.,0.,1.]}}
@@ -59,7 +59,7 @@ class MapBlockAssemblyPrepareTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):assembly.single._check_cons_vector_roundoff(copy.deepcopy(before),{'fields':{'End Vector':value}})
 
     def test_square_face_counts_are_squared_before_the_write_budget_gate(self):
-        from test_map_block_batch import assembly as fixture
+        from tests.unit.test_map_block_batch import assembly as fixture
         block,witness=fixture(((0,0,0),(10,10,10)),((10,0,0),(20,10,10)))
         local={v['volume_id']:assembly.batch.local_witness(witness,v['face_ids']) for v in block['volumes']}
         layout=assembly.batch.assembly_layout(block,local)

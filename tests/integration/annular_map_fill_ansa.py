@@ -181,7 +181,9 @@ async def _verify(run: Path, cfg: dict, identity: dict, helpers: tuple, report: 
 
 
 def main(*, verify=None, run_prefix="annular-fill-public-", options_loader=None, options_help=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, epilog=(
+        "退出码0表示功能流程complete；质量验收请同时检查报告中的"
+        "quality_accepted和acceptance_complete。"))
     parser.add_argument("--ansa-root", type=Path, required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--options", required=True, help=options_help or "JSON 对象：volume_ids 与 annular_options")

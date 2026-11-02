@@ -308,11 +308,10 @@ def _import_runtime_helpers():
     integration_dir = str(Path(__file__).resolve().parent)
     if integration_dir not in sys.path:
         sys.path.insert(0, integration_dir)
-    # stage_two_ansa.rpc assigns a fresh remote module/function name for each
-    # call; its fixtures and stage-one helpers are reused without shared names.
-    import stage_one_ansa
-    import stage_two_ansa
-    return stage_one_ansa, stage_two_ansa
+    import ansa_runtime_helpers
+    # Preserve the two-role tuple used by existing acceptance drivers; all
+    # callbacks and fresh-name RPC calls now come from the shared helper.
+    return ansa_runtime_helpers, ansa_runtime_helpers
 
 
 def _bounded_grpc(grpc, deadline_interceptor):
@@ -1131,7 +1130,7 @@ async def _model_lifecycle(h: McpHarness, report: dict, run_dir: Path, deck: int
 async def _core_acceptance(h: McpHarness, report: dict, run_dir: Path, identity: dict,
                            stage_one, stage_two) -> None:
     schemas = await h.list_schema()
-    _append_case(report, run_dir, "all_28_mcp_tools_have_input_output_schema", {
+    _append_case(report, run_dir, "all_mcp_tools_have_input_output_schema", {
         "count": schemas["count"],
         "input_schemas": schemas["input_schemas"],
         "output_schemas": schemas["output_schemas"],
@@ -1437,6 +1436,13 @@ async def _gui_acceptance(h: McpHarness, report: dict, run_dir: Path, identity: 
 
 
 def _cleanup_owned_ansa(identity: dict, instructions: dict, helper_bundle) -> dict:
+    source = str(PROJECT_ROOT / "src")
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    from ansa_mcp_shared.identity import same_process_alive
+    process_start = identity.get("process_start")
+    if not same_process_alive(identity.get("pid"), process_start):
+        raise RuntimeError("清理前已保存的 ANSA 进程已退出或 PID 已复用，拒绝访问")
     import ansa
     import grpc
     stage_one, stage_two, original_channel = helper_bundle
@@ -1446,11 +1452,6 @@ def _cleanup_owned_ansa(identity: dict, instructions: dict, helper_bundle) -> di
     _verify_program_arguments(checked, translator, port)
     if checked["pid"] != identity["pid"] or checked["program_args"] != identity["program_args"]:
         raise RuntimeError("清理前 ANSA PID/完整启动参数与本运行目录不一致，拒绝停止")
-    source = str(PROJECT_ROOT / "src")
-    if source not in sys.path:
-        sys.path.insert(0, source)
-    from ansa_mcp_shared.identity import process_start_filetime, same_process_alive
-    process_start = identity.get("process_start") or process_start_filetime(identity["pid"])
     if not same_process_alive(identity["pid"], process_start):
         raise RuntimeError("清理前已核验的 ANSA 进程身份发生变化，拒绝停止")
     connection = ansa.connect(host="127.0.0.1", port=port)

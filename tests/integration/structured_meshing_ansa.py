@@ -249,6 +249,9 @@ def main():
                     break
             if previous is None: raise RuntimeError('no recoverable owned fixture evidence')
             identity=previous['identity']
+            from ansa_mcp_shared.identity import same_process_alive
+            if not same_process_alive(identity.get('pid'),identity.get('process_start')):
+                raise RuntimeError('owned resume process exited or PID was reused')
             basic=helpers0[1].rpc(identity['port'],helpers0[0].remote_basic)
             stage._verify_program_arguments(basic,Path(identity['translator']),identity['port'])
             if basic['pid']!=identity['pid'] or basic['program_args']!=identity['program_args']:

@@ -7,8 +7,8 @@ import unittest
 from unittest.mock import patch
 
 from ansa_mcp_bridge.operations import native_quality, quality_workflow as bridge
-from test_quality_workflow import FakeBase, FakeEntity, FakeState
-import test_quality_workflow as workflow_fixtures
+from tests.unit import test_quality_workflow as workflow_fixtures
+from tests.unit.test_quality_workflow import FakeBase, FakeEntity, FakeState
 
 
 class QualityDiagnosticsTests(unittest.TestCase):

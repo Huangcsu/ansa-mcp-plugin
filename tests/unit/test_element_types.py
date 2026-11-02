@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from ansa_mcp_bridge.operations import element_types
-from test_entity_catalog import FakeBase, FakeState as CatalogFakeState
+from tests.unit.test_entity_catalog import FakeBase, FakeState as CatalogFakeState
 
 
 _BAR_DEFAULTS = {

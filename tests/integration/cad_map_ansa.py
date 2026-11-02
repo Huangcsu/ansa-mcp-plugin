@@ -1,10 +1,14 @@
 """Public plan/apply acceptance on an explicitly owned, backed-up Map fixture.
 
-Usage: cad_map_ansa.py <owned-run-dir>. Requires this run's completed output-Part
-probe; never seeds a model or attaches to an unrelated instance.
+Usage:
+  cad_map_ansa.py <owned-run-dir> --input <absolute-existing.ansa> [--from-cad]
+  cad_map_ansa.py <owned-run-dir> --input <absolute-existing.ansa> --resume-failed-task <task-id>
+  cad_map_ansa.py <owned-run-dir> --finalize-persistence
+
+Requires this run's completed output-Part probe; never seeds a model or attaches
+to an unrelated instance.
 """
 import asyncio
-import copy
 from datetime import timedelta
 import json
 import os
@@ -16,6 +20,7 @@ import uuid
 ROOT=Path(__file__).resolve().parents[2]
 sys.path[:0]=[str(ROOT/'src'),str(ROOT/'tests/integration')]
 import stage_three_ansa as stage
+from cad_map_persistence import audit_persistence,resolve_input
 
 
 def remote_refresh(pid,arguments):
@@ -40,18 +45,7 @@ RESULT=_snapshot(builtins._ansa_mcp_plugin_bridge.state,base,base.CurrentDeck())
 '''
 
 
-def audit_persistence(before,after,output_part_id):
-    """Separate one observed ANSA color-display refresh from engineering cards."""
-    left,right=copy.deepcopy(before),copy.deepcopy(after);display=[]
-    a=next(r for r in left['entities'] if r['entity']['type']=='ANSAPART' and r['entity']['id']==output_part_id)
-    b=next(r for r in right['entities'] if r['entity']['type']=='ANSAPART' and r['entity']['id']==output_part_id)
-    if a['fields'].get('Is Color Active')=='NO' and b['fields'].get('Is Color Active')=='YES':
-        display.append({'type':'ANSAPART','id':output_part_id,'field':'Is Color Active','before':'NO','after':'YES'})
-        a['fields']['Is Color Active']=b['fields']['Is Color Active']
-    return {'full_snapshot_exact':before==after,'engineering_snapshot_exact':left==right,'display_changes':display}
-
-
-async def verify(run,cfg,identity,helpers,report,output,prior=None,from_cad=False):
+async def verify(run,cfg,identity,helpers,report,output,input_path,prior=None,from_cad=False):
     from mcp import ClientSession,StdioServerParameters
     from mcp.client.stdio import stdio_client
     params=StdioServerParameters(command=sys.executable,
@@ -79,9 +73,7 @@ async def verify(run,cfg,identity,helpers,report,output,prior=None,from_cad=Fals
                 async def script(code):return (await call('ansa_script_execute',{'script':code,'validate':True}))['result']
                 if prior is not None and await script(SNAPSHOT)!=prior['before']:
                     raise RuntimeError('model changed since failed read-only plan')
-                source_path=('F:/ANSA/ansa-mcp-plugin/runtime/verification/stage-three-d6cc26be58594a4f8e1bc63edbaf7244/box-source.ansa'
-                             if from_cad else str(run/'before-distinct-part-map.ansa'))
-                await call('ansa_model_open',{'path':source_path,
+                await call('ansa_model_open',{'path':str(input_path),
                     'preservation':'backup','backup_path':artifact('before-public-fixture-open')})
                 await h.snapshot_context()
                 output_part_id=2
@@ -173,8 +165,10 @@ def main():
     import argparse
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('run_dir',type=Path);parser.add_argument('--resume-failed-task');parser.add_argument('--from-cad',action='store_true')
+    parser.add_argument('--input',type=Path,help='absolute existing .ansa input for new and resumed runs')
     parser.add_argument('--finalize-persistence',action='store_true')
-    args=parser.parse_args();run=args.run_dir.resolve();prior=None
+    args=parser.parse_args();input_path=resolve_input(args.input,finalize=args.finalize_persistence)
+    run=args.run_dir.resolve();prior=None
     if args.resume_failed_task:
         prior=json.loads((run/'cad-map-public-report.json').read_text('utf-8'))
         if 'apply' in prior or 'plan' in prior:raise RuntimeError('only a failed first read-only plan may resume here')
@@ -188,7 +182,8 @@ def main():
     cfg=json.loads((run/'launch_instructions.json').read_text('utf-8'))
     probe=json.loads((run/'output-part-probe.json').read_text('utf-8'))
     if not probe['complete']:raise RuntimeError('original native probe incomplete')
-    identity=probe['identity'];report={'complete':False,'identity':identity,'calls':[],'pending':None}
+    identity=probe['identity'];report={'complete':False,'identity':identity,'input_path':str(input_path),
+                                        'calls':[],'pending':None}
     if args.finalize_persistence:
         report=json.loads((run/'cad-map-pipeline-report.json').read_text('utf-8'))
         if report.get('pending') is not None or not report.get('apply',{}).get('scope_verified') or 'reopened' not in report:
@@ -207,7 +202,7 @@ def main():
         if args.finalize_persistence:
             asyncio.run(finalize_persistence(run,cfg,identity,(one,two,original),report))
         else:
-            asyncio.run(verify(run,cfg,identity,(one,two,original),report,output,prior,args.from_cad))
+            asyncio.run(verify(run,cfg,identity,(one,two,original),report,output,input_path,prior,args.from_cad))
     except Exception:report['error']=traceback.format_exc();print(report['error'],flush=True)
     finally:stage._json_write(output,report);grpc.insecure_channel=original
     print(json.dumps({'complete':report['complete'],'path':str(output)}),flush=True)

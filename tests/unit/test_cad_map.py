@@ -13,17 +13,34 @@ def params():
             'direction':[0.,0.,1.],'distance':10.,'steps':2,'property_id':2,'output_part_id':7}
 
 
+def load_persistence_helper():
+    path=Path(__file__).parents[1]/'integration'/'cad_map_persistence.py'
+    spec=importlib.util.spec_from_file_location('cad_map_persistence_test',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
 class CadMapTests(unittest.TestCase):
     def test_persistence_exception_is_only_the_observed_output_part_display_flag(self):
-        path=Path(__file__).parents[1]/'integration'/'cad_map_ansa.py'
-        spec=importlib.util.spec_from_file_location('cad_map_persistence_test',path)
-        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        module=load_persistence_helper()
         before={'entities':[{'entity':{'type':'ANSAPART','id':2},'fields':{'Is Color Active':'NO','Name':'output'}}]}
         after=copy.deepcopy(before);after['entities'][0]['fields']['Is Color Active']='YES'
         result=module.audit_persistence(before,after,2)
         self.assertFalse(result['full_snapshot_exact']);self.assertTrue(result['engineering_snapshot_exact'])
         after['entities'][0]['fields']['Name']='unexpected'
         self.assertFalse(module.audit_persistence(before,after,2)['engineering_snapshot_exact'])
+
+    def test_input_path_validation_requires_an_existing_absolute_ansa_unless_finalizing(self):
+        module=load_persistence_helper()
+        root=Path(__file__).resolve().parents[2];valid=root/'input.ansa';wrong=root/'input.step'
+        with patch.object(module.Path,'is_file',autospec=True,side_effect=lambda path:path==valid):
+            self.assertEqual(module.resolve_input(valid),valid)
+            with self.assertRaisesRegex(ValueError,'required'):module.resolve_input(None)
+            with self.assertRaisesRegex(ValueError,'absolute'):module.resolve_input(Path('relative.ansa'))
+            with self.assertRaisesRegex(ValueError,r'\.ansa'):module.resolve_input(wrong)
+            with self.assertRaisesRegex(ValueError,'existing'):module.resolve_input(root/'missing.ansa')
+            self.assertIsNone(module.resolve_input(None,finalize=True))
+            with self.assertRaisesRegex(ValueError,'does not accept'):module.resolve_input(valid,finalize=True)
 
     def test_direction_normalization_is_bitwise_idempotent_for_oblique_plans(self):
         first=cm.normalize({**params(),'direction':[1.,3.,7.]})

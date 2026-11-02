@@ -273,7 +273,7 @@ Freeze的时机是所选面及关联接口两侧的流向、分段和层数协�
 
 ### 固化中心单孔矩形板
 
-用户确认的细化孔板方法现有[参数化原生流程](plate-hole-workflow.md)和[示例参数](../../examples/meshing/plate-hole-o-grid.json)：中心环带＋外围矩形共20块，以相容整数分段调用原生四边映射，Freeze后设厚度方向caps并填充。客户端 `plate_hole_script` 经既有MCP脚本入口调用；当前限定原始轴对齐矩形中心孔恒厚CAD，不是任意已有面网格重划/Freeze的通用专用工具，也不改变MCP工具数量。实际源码链路与工业下一步状态见[验收范围](../acceptance.md)。
+用户确认的细化孔板方法及示例参数见[参数化原生流程](plate-hole-workflow.md#调用方式)：中心环带＋外围矩形共20块，以相容整数分段调用原生四边映射，Freeze后设厚度方向caps并填充。客户端 `plate_hole_script` 经既有MCP脚本入口调用；当前限定原始轴对齐矩形中心孔恒厚CAD，不是任意已有面网格重划/Freeze的通用专用工具，也不改变MCP工具数量。实际源码链路与工业下一步状态见[验收范围](../acceptance.md)。
 
 ### 工业母体保留的端部局部域
 

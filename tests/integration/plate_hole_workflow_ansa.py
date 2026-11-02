@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path[:0]=[str(ROOT/'src'),str(Path(__file__).parent)]
 import annular_map_fill_ansa as lifecycle
 import stage_three_ansa as stage
-from stage_two_ansa import rpc
+from ansa_runtime_helpers import rpc
 from map_block_batch_ansa import harness
 from ansa_mcp_plugin.workflows import plate_hole_script
 from ansa_mcp_shared.plate_hole import build_plan

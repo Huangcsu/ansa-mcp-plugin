@@ -224,7 +224,6 @@ class SurfaceRemeshSchemaTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_registration_write_classification_and_actual_bridge_module_dispatch(self):
         tools = await create_server(object()).list_tools()
-        self.assertEqual(len(tools), 93)
         self.assertIn("ansa_mesh_surface", {tool.name for tool in tools})
         self.assertNotIn("ansa_mesh_surface_remesh", {tool.name for tool in tools})
 

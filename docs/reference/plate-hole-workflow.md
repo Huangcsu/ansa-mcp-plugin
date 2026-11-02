@@ -4,15 +4,25 @@
 
 ## 调用方式
 
-正式实现为 `ansa_mcp_shared.plate_hole` 的纯参数计划、`ansa_mcp_bridge.operations.plate_hole_workflow` 的原生执行，以及 `ansa_mcp_plugin.workflows.plate_hole_script` 的固定脚本构造器。通过已有 `ansa_script_execute` 调用，不新增工具名；当前仍为91项MCP工具。这是MCP承载的原生组合流程，区别于新增专用MCP接口。
+流程由 `ansa_mcp_shared.plate_hole` 生成参数计划，`ansa_mcp_bridge.operations.plate_hole_workflow` 执行原生操作，`ansa_mcp_plugin.workflows.plate_hole_script` 构造调用脚本。客户端通过已有 `ansa_script_execute` 提交，完整工具入口见[工具参考](../tools.md)。
 
-使用[示例参数](../../examples/meshing/plate-hole-o-grid.json)：
+以下示例直接在代码中定义参数，长度单位为毫米：
 
 ```python
-import json
 from ansa_mcp_plugin.workflows import plate_hole_script
 
-params = json.load(open("examples/meshing/plate-hole-o-grid.json", encoding="utf-8"))
+params = {
+    "length": 60.0,
+    "width": 40.0,
+    "thickness": 6.0,
+    "hole_radius": 6.0,
+    "transition_half_size": 9.0,
+    "target_length": 1.5,
+    "thickness_layers": 4,
+    "hole_segments": 48,
+    "radial_segments": 4,
+    "center": [0.0, 0.0, 0.0],
+}
 preview_script = plate_hole_script("plan", params)
 # 提交preview_script给ansa_script_execute，带当前expected_target、expected_model及新operation_id。
 # 查询同一task_id到succeeded，再读取RESULT内的plan_sha256。
@@ -57,10 +67,10 @@ CAD持久性采用按原生FACE ID绑定的逐面IGES D/P摘要；ANSA重开后�
 
 2026-10-28案例已通过：20块、4672 CHEXA、3920 CQUAD4、6300 GRID；完整3072外皮和28组共享接口，ASPECT最大2.143193、JACOB最小0.919226。固化期间的回读实现问题在同一实例修正，复用已生成网格完成公开MCP保存重开；没有为收尾重复生成实体。非默认参数尚未逐例真机验收。组合证据及修正边界见[验收记录](../acceptance.md)。
 
-定向单测为 `test_plate_hole_recipe` 和 `test_plate_hole_workflow`。独立源码模式MCP入口：
+定向单测为 `test_plate_hole_recipe` 和 `test_plate_hole_workflow`。独立源码模式MCP入口的 `--options` 接受 JSON 文本或 JSON 文件路径。使用文件时，将上方 `params` 序列化为自己的 JSON 文件，并替换下方路径占位符：
 
 ```powershell
-.\.venv\Scripts\python.exe -B -X utf8 tests/integration/plate_hole_workflow_ansa.py --ansa-root <ANSA安装目录> --input <已保存的原始孔板.ansa> --options examples/meshing/plate-hole-o-grid.json
+.\.venv\Scripts\python.exe -B -X utf8 tests/integration/plate_hole_workflow_ansa.py --ansa-root "<ANSA安装目录>" --input "<已保存的原始孔板.ansa>" --options "<用户参数JSON文件绝对路径>"
 ```
 
 每次使用独立实例与新目录。既有实体或不匹配的几何应在写入前拒绝；不为文档或回执整理重划已成功的模型。当前实现和真机状态以[验收记录](../acceptance.md)为准。后续工业局部域先核对原文件的ANSA实体身份、母体接口和几何约束，不能把OCC编号直接当ANSA FACE ID，也不能把矩形板模板套到不同的外形。

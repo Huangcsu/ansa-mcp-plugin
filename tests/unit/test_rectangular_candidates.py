@@ -2,8 +2,8 @@ import copy
 import unittest
 
 from ansa_mcp_bridge.operations import rectangular_candidates as candidate
-from test_map_block_batch import assembly
-from test_cad_sweep_candidates import _rehash
+from tests.unit.test_map_block_batch import assembly
+from tests.unit.test_cad_sweep_candidates import _rehash
 
 
 class RectangularCandidateTests(unittest.TestCase):

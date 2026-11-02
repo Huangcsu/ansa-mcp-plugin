@@ -8,7 +8,7 @@ from unittest.mock import patch
 from ansa_mcp_bridge.operations import execute as dispatch_operation
 from ansa_mcp_bridge.operations.inspection import CapabilityUnavailableError
 from ansa_mcp_shared.operations import READ_ONLY_TOOLS, writes_model
-from test_mesh_checks import FakeBase, FakeState
+from tests.unit.test_mesh_checks import FakeBase, FakeState
 
 
 class FakeIntersectionBase(FakeBase):
@@ -167,7 +167,7 @@ class MeshIntersections(unittest.TestCase):
         self.assertEqual(self.base.native_calls, [])
 
     def test_solid_scope_uses_verified_cards_and_rejects_higher_order_or_wrong_results(self):
-        from test_structured_native import FakeBase as SolidBase
+        from tests.unit.test_structured_native import FakeBase as SolidBase
         base = SolidBase()
         for i, xyz in enumerate(((0,0,0),(1,0,0),(1,1,0),(0,1,0),
                                  (0,0,1),(1,0,1),(1,1,1),(0,1,1)),1):

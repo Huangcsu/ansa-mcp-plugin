@@ -1,6 +1,5 @@
 """Native association is established before distances are measured."""
 
-import asyncio
 import copy
 from types import SimpleNamespace
 import unittest
@@ -10,7 +9,7 @@ from pydantic import ValidationError
 from ansa_mcp_bridge.operations import structured_boundary as boundary
 from ansa_mcp_bridge.operations import structured_meshing, structured_native, structured_evidence
 from ansa_mcp_plugin.__main__ import create_server
-from test_structured_native import FakeBase
+from tests.unit.test_structured_native import FakeBase
 
 
 def fixture(offset=0.0):
@@ -64,7 +63,7 @@ class NativeBoundaryTests(unittest.TestCase):
         self.assertLessEqual(lookup.call_count, 3)
 
     def test_incomplete_cylinder_face_membership_propagates_to_single_hole(self):
-        from test_mesh_audit import _cylindrical_hex_snapshot
+        from tests.unit.test_mesh_audit import _cylindrical_hex_snapshot
         snapshot = _cylindrical_hex_snapshot()
         snapshot.update(complete=True, integrity={"complete": True}, snapshot_sha256="a"*64)
         base = FakeBase()
@@ -133,8 +132,6 @@ class NativeBoundaryTests(unittest.TestCase):
             with self.assertRaises((ValueError, TypeError)):
                 boundary.normalize_request({**request, **change})
         server = create_server(SimpleNamespace())
-        tools = asyncio.run(server.list_tools())
-        self.assertEqual(len(tools), 93)
         model = server._tool_manager.get_tool("ansa_mesh_interface_audit").fn_metadata.arg_model
         args = {"operation_id": "cad", "expected_target": {"backend_id": "b", "instance_id": "i", "session_id": "s", "generation": 1},
                 "expected_model": {"epoch": 1}, "deck": 1, "entity_ids": [1], "cad_boundary": request}

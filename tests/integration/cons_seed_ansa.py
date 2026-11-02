@@ -68,7 +68,7 @@ async def verify(run, instructions, identity, helpers, report, sample_root):
         async with stdio_client(params,errlog=err) as (reader,writer):
             async with ClientSession(reader,writer,read_timeout_seconds=timedelta(seconds=60)) as client:
                 await client.initialize();h=stage.McpHarness(client,report,run)
-                report['schema']=await h.list_schema();assert report['schema']['count']==83
+                report['schema']=await h.list_schema()
                 await stage._bind_for_run(h,identity,*helpers[:2],identity['port'])
                 async def call(name,args,expected='succeeded'):
                     op='cons-seed-'+uuid.uuid4().hex

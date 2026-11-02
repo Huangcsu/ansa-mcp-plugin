@@ -84,7 +84,7 @@ def _record(report, name, evidence):
 async def _first_group(client, prefix):
     listed = await client.list_tools()
     names = {tool.name for tool in listed.tools}
-    assert len(EXPECTED_TOOLS) == len(listed.tools) == 58
+    assert len(listed.tools) == len(EXPECTED_TOOLS)
     assert names == EXPECTED_TOOLS
     assert MEMORY_TOOLS <= names
     assert all(isinstance(tool.inputSchema, dict) and tool.inputSchema and

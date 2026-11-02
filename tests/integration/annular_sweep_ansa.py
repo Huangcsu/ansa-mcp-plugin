@@ -6,6 +6,8 @@ sys.path[:0]=[str(ROOT/'src'),str(ROOT/'tests/integration')]
 import stage_three_ansa as stage
 from map_block_batch_ansa import harness
 from rectangular_candidates_ansa import SNAPSHOT
+from map_block_prepare_ansa import ORACLE as PERSISTENCE_SNAPSHOT
+from annular_persistence import complete_persistence
 
 CUT_AND_SELECT=r'''
 import importlib,math
@@ -49,6 +51,7 @@ RESULT={'cuts':cuts,'source_face_ids':sorted(selected),'face_ids':sorted(adjacen
 
 
 async def verify(run,cfg,identity,helpers,r):
+    r['complete']=False
     out=run/'annular-sweep-report.json'
     case=r.get('case_params',{'center':[0.,0.,0.],'axis':[0.,0.,1.],'u':[1.,0.,0.],'v':[0.,1.,0.],
              'inner_radius':10.,'outer_radius':20.,'distance':10.,'steps':2})
@@ -67,7 +70,10 @@ async def verify(run,cfg,identity,helpers,r):
             value=await call('ansa_script_execute',{'script':code,'validate':True})
             if value.get('result_paged'):raise RuntimeError('query original paged result; do not repeat')
             return value['result']
-        async def snapshot(name):return await script('SNAPSHOT_PATH='+repr(str(run/(name+'.json')))+'\n'+SNAPSHOT)
+        async def snapshot(name, *, persistence=False):
+            path_name='ORACLE_PATH' if persistence else 'SNAPSHOT_PATH'
+            source=PERSISTENCE_SNAPSHOT if persistence else SNAPSHOT
+            return await script(path_name+'='+repr(str(run/(name+'.json')))+'\n'+source)
         if r.get('prior_failed_seed'):
             prior=r['prior_failed_seed'];original=await h.call('ansa_task_query',{'task_id':prior['task_id']},allow_error=True)
             if original['status']!='failed' or original['operation_id']!=prior['operation_id']:
@@ -121,17 +127,16 @@ async def verify(run,cfg,identity,helpers,r):
             'distance':case['distance'],'steps':case['steps'],'property_id':selection['property_id'],
             'expected_source_sha256':page['rows'][0],'backup_path':str(run/'before-annular-public-sweep.ansa')})
         if not r['sweep'].get('ok') or not r['sweep'].get('scope_verified'):raise RuntimeError('annular sweep independent verification failed')
-        r['final']=await snapshot('annular-public-final')
+        r['final']=await snapshot('annular-public-final',persistence=True)
         profile={'analysis_type':'linear','element_family':'solid','criteria':[
             {'name':'ASPECT','max':5.},{'name':'JACOB','min':.2}]}
         r['quality']=await call('ansa_mesh_quality_report',{'deck':1,'profile':profile,'entity_ids':r['sweep']['new_solid_ids']})
         if r['quality'].get('report',r['quality'])['summary']['status']!='passed':raise RuntimeError('declared mesh quality criteria not passed')
         await call('ansa_model_save',{'path':str(run/'annular-public-solid.ansa')})
         await call('ansa_model_open',{'path':str(run/'annular-public-solid.ansa'),'preservation':'backup','backup_path':str(run/'before-annular-public-reopen.ansa')});await h.snapshot_context()
-        r['reopened']=await snapshot('annular-public-reopened')
+        r['reopened']=await snapshot('annular-public-reopened',persistence=True)
         a=json.loads(Path(r['final']['path']).read_text('utf-8'));b=json.loads(Path(r['reopened']['path']).read_text('utf-8'))
-        r['save_reopen_raw_exact']=a==b
-        r['complete']=True
+        complete_persistence(r,a,b)
 
 
 def main():

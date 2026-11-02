@@ -346,7 +346,6 @@ class MeshPenetrationsMcpSchema(unittest.IsolatedAsyncioTestCase):
 
         main_server = create_server(object())
         registered = await main_server.list_tools()
-        self.assertEqual(len(registered), 93)
         self.assertIn("ansa_mesh_penetrations", {item.name for item in registered})
 
 

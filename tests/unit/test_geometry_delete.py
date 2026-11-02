@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from ansa_mcp_bridge.operations import geometry, geometry_delete
 from ansa_mcp_shared.operations import writes_model
-from test_entity_catalog import FakeBase, FakeState
+from tests.unit.test_entity_catalog import FakeBase, FakeState
 
 
 class DeleteBase(FakeBase):

@@ -61,26 +61,33 @@ class TaskStoreChecks(unittest.TestCase):
             self.store.create("op-1", changed, self.identity(), None)
 
     def test_concurrent_duplicate_creation_returns_one_task(self):
-        other = TaskStore(self.path)
         barrier = threading.Barrier(2)
         results = []
         errors = []
         request = self.request()
 
-        def create(store):
+        def create():
+            store = None
             try:
-                barrier.wait()
+                store = TaskStore(self.path)
+                barrier.wait(timeout=5)
                 results.append(store.create("op-race", request, self.identity(), None))
             except Exception as exc:  # surfaced in the test thread below
                 errors.append(exc)
+            finally:
+                if store is not None:
+                    store.close()
 
-        threads = [threading.Thread(target=create, args=(item,))
-                   for item in (self.store, other)]
+        threads = [threading.Thread(target=create, name=f"task-create-race-{index}", daemon=True)
+                   for index in range(2)]
         for thread in threads:
             thread.start()
+        deadline = time.monotonic() + 5
         for thread in threads:
-            thread.join()
-        other.close()
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        alive = [thread.name for thread in threads if thread.is_alive()]
+        self.assertFalse(alive,
+                         f"concurrent TaskStore threads did not finish within 5 seconds: {alive}")
         self.assertEqual(errors, [])
         self.assertEqual(len({record["task_id"] for record in results}), 1)
 

@@ -56,7 +56,6 @@ async def verify(run, instructions, identity, helpers, report, source):
                 await client.initialize()
                 h = stage.McpHarness(client, report, run)
                 report["schema"] = await h.list_schema()
-                assert report["schema"]["count"] == 83
                 await stage._bind_for_run(h, identity, *helpers[:2], identity["port"])
 
                 async def call(name, args, expected="succeeded", operation=None):

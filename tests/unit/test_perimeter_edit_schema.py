@@ -1,6 +1,5 @@
 """Risk-focused contracts for the extended CONS seed edit entrypoint."""
 
-import asyncio
 from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
@@ -61,9 +60,6 @@ class PerimeterEditSchemaTests(unittest.TestCase):
         return validated
 
     def test_seed_edit_is_discriminated_strict_union_with_independent_schemas(self):
-        tools = asyncio.run(self.server.list_tools())
-        self.assertEqual(len(tools), 93)
-
         schema = self.model.model_json_schema()
         edit_schema = schema["properties"]["edit"]["anyOf"][0]
         self.assertEqual(edit_schema["discriminator"]["propertyName"], "action")

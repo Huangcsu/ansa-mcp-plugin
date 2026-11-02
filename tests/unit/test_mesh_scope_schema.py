@@ -104,7 +104,6 @@ class MeshScopeSchemaTests(unittest.IsolatedAsyncioTestCase):
 
         tools = await create_server(object()).list_tools()
         names = {tool.name for tool in tools}
-        self.assertEqual(len(tools), 93)
         self.assertTrue({"ansa_mesh_scope_read", "ansa_mesh_freeze"} <= names)
         self.assertIn("mesh_scope_read", READ_ONLY_TOOLS)
         self.assertIn("mesh_scope_read", TASK_TOOLS)

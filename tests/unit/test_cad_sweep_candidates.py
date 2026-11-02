@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(TEST_DIR))
 
 from ansa_mcp_bridge.operations.cad_sweep_candidates import discover, subset_witness
-from test_cad_sweep_topology import _cube_witness
+from tests.unit.test_cad_sweep_topology import _cube_witness
 
 
 _SOURCE_FIELDS = (

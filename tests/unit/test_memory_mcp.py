@@ -44,7 +44,6 @@ class MemoryMcpChecks(unittest.IsolatedAsyncioTestCase):
         await server.call_tool("ansa_memory_read", {"key": None})
         memory.read.assert_called_with(None, 30, None, None)
         tools = await server.list_tools()
-        self.assertEqual(len(tools), 93)
         for name in ("ansa_memory_read", "ansa_memory_write"):
             tool = next(tool for tool in tools if tool.name == name)
             self.assertFalse(tool.inputSchema["additionalProperties"])

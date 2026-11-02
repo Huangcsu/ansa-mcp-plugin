@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 from ansa_mcp_bridge.operations import mesh_settings
 from ansa_mcp_plugin.mcp.meshing import MeshSettingsChange
-from test_entity_catalog import FakeState
-from test_meshing import FakeMesh, MeshBase
+from tests.unit.test_entity_catalog import FakeState
+from tests.unit.test_meshing import FakeMesh, MeshBase
 
 
 class SettingsBase(MeshBase):
