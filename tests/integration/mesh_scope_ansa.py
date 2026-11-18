@@ -384,8 +384,8 @@ async def _harness(run_dir: Path, instructions: dict, identity: dict, helpers: t
                             "ansa_mesh_scope_read", "ansa_mesh_freeze"}
                 if not required <= set(names):
                     raise RuntimeError("independent MCP session lacks required tools: " + repr(sorted(required - set(names))))
-                if len(names) != 93:
-                    raise RuntimeError(f"expected 93 tools in the current MCP server, received {len(names)}")
+                if len(names) != 94:
+                    raise RuntimeError(f"expected 94 tools in the current MCP server, received {len(names)}")
                 report["mcp_schema"] = {"count": len(names), "required": sorted(required)}
                 await stage._bind_for_run(harness, identity, *helpers[:2], identity["port"])
                 yield harness

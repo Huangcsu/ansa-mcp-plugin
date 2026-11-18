@@ -149,6 +149,9 @@ def execute(state, tool, params):
     if tool in {"mesh_scope_read", "mesh_freeze"}:
         from . import mesh_scope
         return mesh_scope.execute(state, tool, params)
+    if tool in {"model_features_recognize_plan", "model_features_recognize"}:
+        from . import model_feature_recognition
+        return model_feature_recognition.execute(state, tool, params)
     if tool == "mesh_seed_edit":
         from . import perimeter_edit
         return perimeter_edit.execute(state, tool, params)

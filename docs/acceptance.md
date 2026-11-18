@@ -656,3 +656,23 @@ i10 原执行包约 2.29 MB，超过 1 MiB TCP 帧限制，调用端出现 unkno
 本轮87项唯一公共任务最终84项成功、3项预期拒绝，无排队、运行或未知任务。PID25464在全部终态、保存重开及唯一translator/完整参数/启动时间核验后关闭。未写入i03，未部署、提交或推送。
 
 可复用入口为`tests/integration/surface_remesh_ansa.py`。本机证据目录为`runtime/verification/stage-three-039ce4c1669d40d4928763417c4a59ea/`：整链`surface-remesh-report.json`，最终保护补验`final-guard-supplement-v2-report.json`，源码刷新指纹`source-refresh-final-guards.json`，组合索引`surface-remesh-verification.json`。原生探针、续跑脚本、日志及模型均保留在忽略目录。
+
+## 2026-11-18 Shell／Solid 原生 Feature 识别
+
+本提交提供 `ansa_model_features_recognize`，公开工具总数为 94。以下为从已有工作源码的真机验收中提取的识别证据，运行环境为 ANSA 2026.1.0、NASTRAN、隔离实例及限定夹具。使用方法见[识别契约](reference/model-features.md#受控特征识别)。
+
+| 范围 | 已取得的公开 MCP 正例 |
+| --- | --- |
+| 基础 CAD | 标准 Round HOLE 2D、FILLET 和 CHAMFER。限定夹具核对识别数量、成员、设置恢复、范围保护与保存重开。 |
+| Solid CAD | 小型带孔件识别 2 个 HOLE 3D、6 个 FLANGE 3D、1 个 STAMP、42 个 SPECIAL PERIMETER。 |
+| Shell CAD | 折角夹具识别 1 个 FLANGE 2D，带凸起字样的夹具识别 1 个 LOGO。双三角筋 CAD 壳面夹具识别数量为 0。 |
+
+### 2026-11-18 Ribs 2D 与 Fasteners 真机补验
+
+独立文件型 DM 库有螺钉 `common` 条目 `93945A066`，匹配产生 1 个原生 `FASTENER FEATURE`。公开 apply 在识别后范围回读失败。28 个 FACE ID 保持，CONS 和 Hot Point 数量发生变化，一张 FACE 的原生面积变为 0。工作源码保留 DM 前置检查，Fasteners 的公开端到端验收暂缓。
+
+### 2026-11-18 Ribs 2D 公开 MCP 壳网格验收
+
+显式选择 `modelling="Shell"`、`feature_types=["RIB 2D"]` 和 `input_kind="shell_mesh"`。双三角筋夹具含 258 个壳单元、278 个节点。识别得到 2 个 RIB 2D 和 15 条新 FE 周界。每个筋板特征含对应的 9 个壳单元和 3 条 FE 周界。新周界的相邻壳单元均属于目标 Part，识别设置恢复，单元连接、属性引用和节点坐标保持。通过公开 MCP 保存重开，独立原生回读确认特征成员和周界归属保持。
+
+本机回执保存在 `runtime/verification/stage-three-67c6b892cc924977939a290974ba0e0d/public-rib.json`。当前批次 10 类具有公开识别正例。正式安装包和工程网格质量各自验收。

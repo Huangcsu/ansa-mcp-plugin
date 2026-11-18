@@ -1,5 +1,11 @@
 # 更新记录
 
+## 2026-11-18 Shell／Solid 原生 Feature 识别（工作源码）
+
+- 新增 `ansa_model_features_recognize`，提供只读识别计划、写前备份、原生识别、设置恢复及范围回读。
+- Ribs 2D 支持显式纯壳网格输入，回读筋板壳单元及 FE 周界归属。Fasteners 保留 DM 前置检查，公开端到端验收暂缓。
+- 工作源码注册 94 个工具。识别范围及真机证据见[识别契约](docs/reference/model-features.md)与[验收记录](docs/acceptance.md#2026-11-18-shellsolid-原生-feature-识别)。
+
 ## 2026-10-31 已有面网格重划（工作源码）
 
 - 扩展`ansa_mesh_surface(method="remesh_existing")`，原生FREE支持显式Quad/Mixed/Tria，mapped支持Quad；公开工具仍为93项。

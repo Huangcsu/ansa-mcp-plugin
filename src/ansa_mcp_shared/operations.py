@@ -23,6 +23,7 @@ READ_ONLY_TOOLS = frozenset({
     "mesh_map_block_caps_plan",
     "mesh_map_blocks_plan", "mesh_annular_source_plan",
     "mesh_scope_read",
+    "model_features_recognize_plan",
     "rigid_dependencies",
     "connection_list",
     "connection_check",
@@ -31,7 +32,7 @@ READ_ONLY_TOOLS = frozenset({
 })
 MODEL_CHANGE_TOOLS = frozenset({"model_new", "model_open", "model_import", "benchmark_run"})
 TASK_TOOLS = READ_ONLY_TOOLS | MODEL_CHANGE_TOOLS | frozenset({
-    "grid_create", "grid_update", "grid_delete", "model_save",
+    "grid_create", "grid_update", "grid_delete", "model_save", "model_features_recognize",
     "entity_create", "entity_update", "entity_delete", "script_execute", "entity_visibility",
     "model_export", "model_autosave", "model_save_current", "part_create", "set_add",
     "mesh_surface", "mesh_surface_remesh", "mesh_delete", "mesh_settings_update",

@@ -1,6 +1,6 @@
 # MCP 工具参考
 
-当前工作源码注册 93 个 MCP 工具。结构化网格、几何特征、受控 CONS 辅助曲线转换、原始 CONS 分段设置、有限六面 CAD Map、孔环源面准备及 MapBlock caps 设置的验收范围见[验收记录](acceptance.md)，尚未完成发行集成。工具的实际输入与输出 schema 由服务返回；下表提供能力入口，具体范围见对应参考。
+当前工作源码注册 94 个 MCP 工具。结构化网格、几何特征、受控 CONS 辅助曲线转换、原始 CONS 分段设置、有限六面 CAD Map、孔环源面准备及 MapBlock caps 设置的验收范围见[验收记录](acceptance.md)，尚未完成发行集成。工具的实际输入与输出 schema 由服务返回；下表提供能力入口，具体范围见对应参考。
 
 ## 当前入口
 
@@ -13,6 +13,7 @@
 | NASTRAN GRID（4） | `ansa_grid_create`、`ansa_grid_read`、`ansa_grid_update`、`ansa_grid_delete` |
 | 通用实体与节点（9） | `ansa_entity_count`、`ansa_entity_list`、`ansa_entity_get`、`ansa_entity_create`、`ansa_entity_update`、`ansa_entity_delete`、`ansa_entity_find`、`ansa_entity_bounds`、`ansa_node_coordinates` |
 | 模型（10） | `ansa_model_save`、`ansa_model_summary`、`ansa_model_includes`、`ansa_model_new`、`ansa_model_open`、`ansa_model_inspect`、`ansa_model_export`、`ansa_model_import`、`ansa_model_autosave`、`ansa_model_save_current` |
+| 原生 Feature 识别（1） | `ansa_model_features_recognize` |
 | 文件集（1） | `ansa_benchmark_run` |
 | 连接（4） | `ansa_connection_list`、`ansa_connection_create`、`ansa_connection_check`、`ansa_connection_apply` |
 | 元素类型（1） | `ansa_element_change_type` |
@@ -33,6 +34,8 @@
 `ansa_mesh_seed_apply`的可选`edit`提供[已有边界重新分段、定长和分布对齐](reference/perimeter-edit.md)，保留旧首次分段模式；已有面网格须先显式处理。
 
 `ansa_mesh_surface(method="remesh_existing")`提供[已有面网格重划](reference/surface-remesh.md)：完整单FACE Macro范围、显式FREE或mapped及单元类型，保护周界、邻面FE和工程引用，并恢复全局配置。
+
+`ansa_model_features_recognize` 在显式 Part 上执行 [Shell／Solid 原生特征识别](reference/model-features.md#受控特征识别)。默认只读计划，应用核对计划指纹、写前备份及识别结果。Shell 模式单选 Ribs 2D 时支持显式壳网格输入。
 
 ## 使用契约
 
@@ -83,4 +86,4 @@
 | [任务、脚本及 API](reference/tasks-api.md) | 状态、幂等、取消、恢复、日志、记忆和脚本 |
 | [验证范围](acceptance.md) | 当前环境、既有证据和未验证范围 |
 
-旧 79 项是迁移功能口径，当前 93 项是工作源码注册接口口径；数字不同且不代表一一对应。历史入口对应保留在[迁移映射](reference/legacy-mapping.md)和机器可读 [tool-mapping.json](tool-mapping.json)，不作为当前完整 schema。
+旧 79 项统计迁移功能，当前 94 项统计工作源码注册的接口。历史入口对应见[迁移映射](reference/legacy-mapping.md)和机器可读 [tool-mapping.json](tool-mapping.json)，完整 schema 以服务返回为准。

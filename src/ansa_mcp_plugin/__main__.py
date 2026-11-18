@@ -157,6 +157,8 @@ def create_server(service):
 
     from .mcp.extensions import register
     register(server, service, submit)
+    from .mcp.model_features import register as register_model_features
+    register_model_features(server, submit)
     from .mcp.organization import register as register_organization
     register_organization(server, submit)
     from .mcp.meshing import register as register_meshing

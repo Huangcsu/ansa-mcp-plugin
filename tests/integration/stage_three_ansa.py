@@ -25,6 +25,7 @@ import uuid
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 VERIFICATION_ROOT = PROJECT_ROOT / "runtime" / "verification"
 EXPECTED_TOOLS = frozenset({
+    "ansa_model_features_recognize",
     "ansa_connection_status",
     "ansa_model_snapshot",
     "ansa_grid_create",
